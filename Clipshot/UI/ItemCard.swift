@@ -141,8 +141,7 @@ struct ItemCard: View {
                     previews: linkPreviews,
                     url: item.url,
                     enabled: fetchLinkPreviews,
-                    isPaused: isPaused,
-                    height: compact ? 40 : 62
+                    isPaused: isPaused
                 )
                 Text(item.previewText)
                     .font(.system(size: compact ? 9.5 : 10.5))
@@ -307,48 +306,50 @@ struct ItemCard: View {
 /// Async OG-image thumbnail with a placeholder while loading, on failure, or
 /// when previews are disabled/paused.
 private struct LinkPreviewThumbnail: View {
+    /// Standard Open Graph image ratio (1200×630).
+    static let aspectRatio: CGFloat = 120.0 / 63.0
+
     @ObservedObject var previews: LinkPreviewStore
     let url: URL?
     let enabled: Bool
     let isPaused: Bool
-    let height: CGFloat
 
     @State private var image: NSImage?
 
     var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 7, style: .continuous)
-                .fill(Color.primary.opacity(0.06))
+        Color.clear
+            .aspectRatio(Self.aspectRatio, contentMode: .fit)
+            .overlay {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 7, style: .continuous)
+                        .fill(Color.primary.opacity(0.06))
 
-            if let image {
-                Image(nsImage: image)
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .clipped()
-            } else {
-                Image(systemName: "photo")
-                    .font(.system(size: 15, weight: .light))
-                    .foregroundStyle(.tertiary)
+                    if let image {
+                        Image(nsImage: image)
+                            .resizable()
+                            .scaledToFill()
+                    } else {
+                        Image(systemName: "photo")
+                            .font(.system(size: 15, weight: .light))
+                            .foregroundStyle(.tertiary)
+                    }
+                }
             }
-        }
-        .frame(maxWidth: .infinity)
-        .frame(height: height)
-        .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 7, style: .continuous)
-                .strokeBorder(Color.primary.opacity(0.07), lineWidth: 1)
-        )
-        .onAppear(perform: refresh)
-        .onChange(of: previews.revision) { _, _ in
-            image = url.flatMap { previews.cachedImage(for: $0) }
-        }
-        .onChange(of: isPaused) { _, paused in
-            if !paused { refresh() }
-        }
-        .onChange(of: enabled) { _, isEnabled in
-            if isEnabled { refresh() }
-        }
+            .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                    .strokeBorder(Color.primary.opacity(0.07), lineWidth: 1)
+            )
+            .onAppear(perform: refresh)
+            .onChange(of: previews.revision) { _, _ in
+                image = url.flatMap { previews.cachedImage(for: $0) }
+            }
+            .onChange(of: isPaused) { _, paused in
+                if !paused { refresh() }
+            }
+            .onChange(of: enabled) { _, isEnabled in
+                if isEnabled { refresh() }
+            }
     }
 
     private func refresh() {
