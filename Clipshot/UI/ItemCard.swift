@@ -58,31 +58,35 @@ struct ItemCard: View {
 
     private var cardBorder: some View {
         RoundedRectangle(cornerRadius: 11, style: .continuous)
-            .stroke(borderColor, lineWidth: isSelected ? 1.6 : 1.2)
+            .stroke(
+                borderColor,
+                lineWidth: CardAccentStyle.borderWidth(isSelected: isSelected)
+            )
     }
 
     private var backgroundColor: Color {
-        if isSelected { return (accentColor ?? Color.accentColor).opacity(0.16) }
-        if let accent = accentColor { return accent.opacity(0.05) }
+        if let tint = CardAccentStyle.backgroundTint(for: accentNSColor, isSelected: isSelected) {
+            return tint.color
+        }
+        if isSelected { return Color.accentColor.opacity(0.16) }
         return Color.primary.opacity(0.05)
     }
 
     private var borderColor: Color {
-        if isSelected { return (accentColor ?? Color.accentColor).opacity(0.9) }
-        if let accent = accentColor { return accent.opacity(0.3) }
-        return Color.primary.opacity(0.08)
+        if let tint = CardAccentStyle.borderTint(for: accentNSColor, isSelected: isSelected) {
+            return tint.color
+        }
+        if isSelected { return Color.accentColor.opacity(0.9) }
+        return Color.primary.opacity(0.12)
     }
 
-    private var accentColor: Color? {
+    private var accentNSColor: NSColor? {
         if item.kind == .color,
            let text = item.text,
            let parsed = ClipboardColorParser.parse(text) {
-            return Color(nsColor: parsed.nsColor)
+            return parsed.nsColor
         }
-        if let accent = appIcons.accent(for: item.bundleId) {
-            return Color(nsColor: accent)
-        }
-        return nil
+        return appIcons.accent(for: item.bundleId)
     }
 
     private var header: some View {

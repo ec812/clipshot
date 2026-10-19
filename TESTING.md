@@ -14,7 +14,7 @@ xcodebuild -scheme Clipshot test
 Latest verified result on this machine (Xcode 27.1, macOS 27.0.1):
 
 - `xcodebuild -scheme Clipshot build` → **BUILD SUCCEEDED**
-- `xcodebuild -scheme Clipshot test` → **TEST SUCCEEDED** — 97 tests, 0 failures
+- `xcodebuild -scheme Clipshot test` → **TEST SUCCEEDED** — 103 tests, 0 failures
   - `HistoryStoreTests` — 12
   - `PrivacyFilterTests` — 10
   - `BitlyBackendTests` — 17
@@ -25,6 +25,7 @@ Latest verified result on this machine (Xcode 27.1, macOS 27.0.1):
   - `OGImageCacheTests` — 6
   - `AppIconAccentTests` — 8
   - `AppIconProviderCacheTests` — 2
+  - `CardAccentStyleTests` — 6
 
 Note: Xcode prints unrelated `CoreDevice` / `CoreSimulator` warnings on this machine ("CoreSimulator is out of date"). They concern iOS device support and do not affect macOS builds or tests.
 
@@ -40,6 +41,7 @@ Note: Xcode prints unrelated `CoreDevice` / `CoreSimulator` warnings on this mac
 | `ClipboardColorParser` | hex 3/4/6/8, rgb/rgba comma + space, percentages, alpha, hsl/hsla, oklch/okchl/oklab → sRGB round-trip, named subset, mixed-content and out-of-range rejection |
 | `OGImageParser` | `og:image`, `twitter:image` fallback, attribute order/case, relative URL resolution, entities, malformed markup, non-HTTP rejection |
 | `OGImageCache` | store/lookup, 7-day TTL, 24-hour negative cache, image↔negative replacement, LRU eviction under a byte cap, clear |
+| `CardAccentStyle` | unselected border opacity ≥ 0.5 and wash ≥ 0.10, selected stronger than unselected, blue/yellow composited hue preserved over a dark card background |
 
 ## 2. Manual checklist
 
@@ -126,14 +128,14 @@ Copy each value below, then open the timeline. Every one must render a large rou
 - [ ] Pause capture (menu bar), copy a new URL, open the timeline → no OG fetch occurs while paused; resume and reopen → the fetch starts.
 
 ### Source-app icon + accent
-> A timeline containing clips from only one app legitimately shows that app's accent on every card. For example, a Brave-only history is orange-red — this is not a generic red tint. Capture from at least two apps before judging per-app accents. `Docs/verify-accents.png` is a diagnostic overlay render showing Safari/Finder blue, Notes yellow, Xcode blue, and Brave orange-red in the same timeline.
+> A timeline containing clips from only one app legitimately shows that app's accent on every card. For example, a Brave-only history is orange-red — this is not a generic red tint. Capture from at least two apps before judging per-app accents. `Docs/verify-accents-v2.png` is a diagnostic overlay render showing Safari/Finder blue borders and washes, Notes yellow, Xcode blue, Brave orange-red, and Terminal neutral, captured only after every accent had resolved.
 
-- [ ] Copy text from at least 4 apps with distinct icons (Safari, Notes, Terminal, Preview) → each card shows the source app icon and a subtly tinted border/background.
-- [ ] Safari cards lean blue, Notes cards lean yellow/orange, Terminal cards stay neutral (gray/black icons have no accent).
-- [ ] Copy a color value → its card border matches the copied color, on top of any app accent.
+- [ ] Copy text from at least 4 apps with distinct icons (Safari, Notes, Terminal, Preview) → each card shows the source app icon and a clearly visible tinted border plus a colored background wash.
+- [ ] Safari/Finder cards have a clearly blue border (~0.7 opacity) and wash; Notes has a clearly yellow border/wash; Terminal (gray/black icon) stays neutral.
+- [ ] Verify the selected card is still distinguishable: full-opacity accent border, thicker stroke, and a deeper wash than unselected cards.
+- [ ] Copy a color value → its card border and wash match the copied color, on top of any app accent.
 - [ ] Quit and relaunch, open the timeline → icons and accents appear from cache without a visible delay.
 - [ ] Verify the cache version marker at `~/Library/Application Support/Clipshot/AppIcons/cache-version` reads `v2`; legacy `*.png`/`*.accent` entries from older builds are gone (one-time migration).
-- [ ] Hover/select cards → the accent remains visible at roughly 30% opacity in the unselected border.
 - [ ] Remove/uninstall an app whose clipboard item is still in history (or use an item with an unknown bundle id) → a generic app icon is shown instead of a blank.
 
 ### Pinboards and snippets

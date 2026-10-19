@@ -35,6 +35,7 @@
 		1C47CA9F8A7EF2F09DF46D9D /* QRGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 343D0FFF0DACC9AB1CB53B84 /* QRGenerator.swift */; };
 		79F553A5CC1DFBC412A24C54 /* ShortenRulesEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3D5E10CDB7BF61E37E54DC0 /* ShortenRulesEngine.swift */; };
 		7CBB0772D5F34DE966FD0B3D /* ShortenerBackend.swift in Sources */ = {isa = PBXBuildFile; fileRef = 691EE8E6E706A16E08C4B5DE /* ShortenerBackend.swift */; };
+		E8C65D4EBFC52271A0F1F7E0 /* CardAccentStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E46E6352D37FA796413BD29 /* CardAccentStyle.swift */; };
 		DAB81880EAF883AFCCCD71A9 /* ColorHex.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F8D1A5498FF0F78D9C6D6EC /* ColorHex.swift */; };
 		81F7DD45085BF43E3900BA1F /* ItemCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6904DA49733FB3B30CA59CD3 /* ItemCard.swift */; };
 		EBE642D5F92C9C0E8C8329A2 /* MenuBarContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = F94A36183F442C7102A5AF13 /* MenuBarContent.swift */; };
@@ -47,6 +48,7 @@
 		2D96D85B345BB8E0E1A30DCF /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA67F574EDA0941671DDC700 /* SettingsView.swift */; };
 		10BC506F97B32BBBEEECDAAE /* AppIconAccentTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 183DAD0119070DA722A3C428 /* AppIconAccentTests.swift */; };
 		0AAC5192A5179E8704162B28 /* BitlyBackendTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF8CADCAF62CEABE04BF9314 /* BitlyBackendTests.swift */; };
+		AE33A5E256EA0CFB34C3CD36 /* CardAccentStyleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E5235066FF075673792E4D5 /* CardAccentStyleTests.swift */; };
 		DC2DF62FC7014B20747C1576 /* ClipboardColorParserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B65E6CD4CB3D9570DAF44B3 /* ClipboardColorParserTests.swift */; };
 		D147DB041647AE5C643B5A66 /* HistoryStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D3E191664E1B394E5A96EF4 /* HistoryStoreTests.swift */; };
 		3A5319481F591FF6CF39A3EC /* OGImageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D8E247866CADD40A7D9D1AB /* OGImageTests.swift */; };
@@ -95,6 +97,7 @@
 		343D0FFF0DACC9AB1CB53B84 /* QRGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Clipshot/Services/QRGenerator.swift; sourceTree = "<group>"; };
 		F3D5E10CDB7BF61E37E54DC0 /* ShortenRulesEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Clipshot/Services/ShortenRulesEngine.swift; sourceTree = "<group>"; };
 		691EE8E6E706A16E08C4B5DE /* ShortenerBackend.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Clipshot/Services/ShortenerBackend.swift; sourceTree = "<group>"; };
+		1E46E6352D37FA796413BD29 /* CardAccentStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Clipshot/UI/CardAccentStyle.swift; sourceTree = "<group>"; };
 		2F8D1A5498FF0F78D9C6D6EC /* ColorHex.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Clipshot/UI/ColorHex.swift; sourceTree = "<group>"; };
 		6904DA49733FB3B30CA59CD3 /* ItemCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Clipshot/UI/ItemCard.swift; sourceTree = "<group>"; };
 		F94A36183F442C7102A5AF13 /* MenuBarContent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Clipshot/UI/MenuBarContent.swift; sourceTree = "<group>"; };
@@ -107,6 +110,7 @@
 		BA67F574EDA0941671DDC700 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Clipshot/UI/Settings/SettingsView.swift; sourceTree = "<group>"; };
 		183DAD0119070DA722A3C428 /* AppIconAccentTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipshotTests/AppIconAccentTests.swift; sourceTree = "<group>"; };
 		BF8CADCAF62CEABE04BF9314 /* BitlyBackendTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipshotTests/BitlyBackendTests.swift; sourceTree = "<group>"; };
+		1E5235066FF075673792E4D5 /* CardAccentStyleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipshotTests/CardAccentStyleTests.swift; sourceTree = "<group>"; };
 		3B65E6CD4CB3D9570DAF44B3 /* ClipboardColorParserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipshotTests/ClipboardColorParserTests.swift; sourceTree = "<group>"; };
 		0D3E191664E1B394E5A96EF4 /* HistoryStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipshotTests/HistoryStoreTests.swift; sourceTree = "<group>"; };
 		0D8E247866CADD40A7D9D1AB /* OGImageTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipshotTests/OGImageTests.swift; sourceTree = "<group>"; };
@@ -176,6 +180,7 @@
 				343D0FFF0DACC9AB1CB53B84 /* QRGenerator.swift */,
 				F3D5E10CDB7BF61E37E54DC0 /* ShortenRulesEngine.swift */,
 				691EE8E6E706A16E08C4B5DE /* ShortenerBackend.swift */,
+				1E46E6352D37FA796413BD29 /* CardAccentStyle.swift */,
 				2F8D1A5498FF0F78D9C6D6EC /* ColorHex.swift */,
 				6904DA49733FB3B30CA59CD3 /* ItemCard.swift */,
 				F94A36183F442C7102A5AF13 /* MenuBarContent.swift */,
@@ -195,6 +200,7 @@
 			children = (
 				183DAD0119070DA722A3C428 /* AppIconAccentTests.swift */,
 				BF8CADCAF62CEABE04BF9314 /* BitlyBackendTests.swift */,
+				1E5235066FF075673792E4D5 /* CardAccentStyleTests.swift */,
 				3B65E6CD4CB3D9570DAF44B3 /* ClipboardColorParserTests.swift */,
 				0D3E191664E1B394E5A96EF4 /* HistoryStoreTests.swift */,
 				0D8E247866CADD40A7D9D1AB /* OGImageTests.swift */,
@@ -348,6 +354,7 @@
 				1C47CA9F8A7EF2F09DF46D9D /* QRGenerator.swift in Sources */,
 				79F553A5CC1DFBC412A24C54 /* ShortenRulesEngine.swift in Sources */,
 				7CBB0772D5F34DE966FD0B3D /* ShortenerBackend.swift in Sources */,
+				E8C65D4EBFC52271A0F1F7E0 /* CardAccentStyle.swift in Sources */,
 				DAB81880EAF883AFCCCD71A9 /* ColorHex.swift in Sources */,
 				81F7DD45085BF43E3900BA1F /* ItemCard.swift in Sources */,
 				EBE642D5F92C9C0E8C8329A2 /* MenuBarContent.swift in Sources */,
@@ -367,6 +374,7 @@
 			files = (
 				10BC506F97B32BBBEEECDAAE /* AppIconAccentTests.swift in Sources */,
 				0AAC5192A5179E8704162B28 /* BitlyBackendTests.swift in Sources */,
+				AE33A5E256EA0CFB34C3CD36 /* CardAccentStyleTests.swift in Sources */,
 				DC2DF62FC7014B20747C1576 /* ClipboardColorParserTests.swift in Sources */,
 				D147DB041647AE5C643B5A66 /* HistoryStoreTests.swift in Sources */,
 				3A5319481F591FF6CF39A3EC /* OGImageTests.swift in Sources */,
