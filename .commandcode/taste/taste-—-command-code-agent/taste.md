@@ -1,0 +1,16 @@
+# Taste — Command Code agent
+- Expects work to be verified by actually running the required build and test commands before completion is claimed; "done" means those commands pass, not that they probably would. Confidence: 0.92
+- Explicitly prohibits fabricated results: if a toolchain step fails, iterate until it passes or report the exact blocker and stop, rather than pretending. Confidence: 0.95
+- Requires a final report that lists files created/changed, exact test output (pass/fail counts), build result, and every deviation from the spec with its reason. Confidence: 0.9
+- Wants all work confined to the given project root: no global install scripts, no modifying anything outside the workspace, no touching system/keychain state beyond the app's own in-code keychain usage. Confidence: 0.85
+- Prefers no git history from the agent — at most a single local initial commit, otherwise leave the repo untouched. Confidence: 0.75
+- Provides a plan/brief document as the "spec of record"; expects it to be read first and followed, with decisions it marks as locked treated as non-negotiable and not revisited. Confidence: 0.85
+- Wants explicit deviation reporting instead of silent scope changes when the spec is impractical. Confidence: 0.8
+- Prefers depending on a protocol boundary (e.g. a backend protocol with capabilities + a registry) so concrete clients are swappable and the UI never talks to a vendor client directly; new provider features should be expressed as capability flags + protocol methods rather than UI special-cases. Confidence: 0.8
+- Expects documentation to stay in lockstep with the code: README, TESTING.md and the originating plan/brief docs must be updated in the same pass whenever a backend, endpoint, error state or limitation changes. Confidence: 0.8
+- When a third-party integration is replaced, wants it removed wholesale — old client, service URLs and naming deleted rather than kept as shims; the former vendor may survive only as documented UX inspiration. Confidence: 0.65
+- Favors local-first implementations (local SQLite/file storage) with no cloud sync unless asked. Confidence: 0.6
+- Wants new features split along the existing models/services/UI layering, with the decision logic in plain, dependency-injected service types (parsers, caches taking an injected clock/directory) and thin views, so the logic is unit-testable without the UI. Confidence: 0.8
+- Insists UI-critical paths never block on I/O: network fetches and image/icon processing run off the main thread behind caches (memory + disk), with in-flight request dedupe and placeholders instead of spinners that stall scrolling. Confidence: 0.75
+- Likes bounded, self-protecting resources rather than unbounded growth: explicit timeouts and byte caps, TTLs, negative caching of failures, and an LRU size cap, plus a user-facing setting/button to toggle or clear the cache. Confidence: 0.7
+- Expects new behavior to respect existing app-wide modes (e.g. a privacy "pause" that must also suspend network fetches) rather than only the happy path. Confidence: 0.7
