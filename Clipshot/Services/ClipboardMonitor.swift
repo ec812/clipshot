@@ -5,7 +5,8 @@ import Foundation
 ///
 /// Polling is intentional: changeCount is cheap, does not require extra TCC
 /// permissions, and matches the approach used by other clipboard managers.
-@MainActor
+/// Only the pasteboard snapshot happens on the main thread; hashing, image/RTF
+/// persistence, database inserts, and rule evaluation run on a serial queue.
 final class ClipboardMonitor {
     var onCapture: ((ClipboardItem) -> Void)?
     var onAutoShorten: ((ClipboardItem, ShortenRule) -> Void)?
@@ -16,10 +17,15 @@ final class ClipboardMonitor {
     private let rulesEngine: ShortenRulesEngine
     private let dataStore: ItemDataStore
     private let pollInterval: TimeInterval
+    private let processingQueue = DispatchQueue(
+        label: "com.ernest.clipshot.clipboard-capture",
+        qos: .utility
+    )
 
     private var timer: Timer?
     private var lastChangeCount: Int
     private var ignoredChangeCounts: Set<Int> = []
+    /// Only touched on `processingQueue`.
     private var lastHash: String?
 
     init(
@@ -45,9 +51,7 @@ final class ClipboardMonitor {
         guard timer == nil else { return }
         lastChangeCount = pasteboard.changeCount
         let timer = Timer(timeInterval: pollInterval, repeats: true) { [weak self] _ in
-            MainActor.assumeIsolated {
-                self?.poll()
-            }
+            self?.poll()
         }
         RunLoop.main.add(timer, forMode: .common)
         self.timer = timer
@@ -71,7 +75,9 @@ final class ClipboardMonitor {
     /// Forces the next poll to treat the current pasteboard as new.
     func resetBaseline() {
         lastChangeCount = pasteboard.changeCount
-        lastHash = nil
+        processingQueue.async { [weak self] in
+            self?.lastHash = nil
+        }
     }
 
     private func poll() {
@@ -97,7 +103,21 @@ final class ClipboardMonitor {
             sourceApp: sourceApp
         ) else { return }
 
-        guard let payload = ClipboardPayloadReader.read(from: pasteboard, dataStore: dataStore) else {
+        guard let snapshot = ClipboardPayloadReader.snapshot(from: pasteboard) else {
+            return
+        }
+
+        processingQueue.async { [weak self] in
+            self?.process(snapshot, bundleId: bundleId, sourceApp: sourceApp)
+        }
+    }
+
+    private func process(
+        _ snapshot: PasteboardCaptureSnapshot,
+        bundleId: String?,
+        sourceApp: String?
+    ) {
+        guard let payload = ClipboardPayloadReader.process(snapshot, dataStore: dataStore) else {
             return
         }
         guard payload.hash != lastHash else { return }
@@ -113,7 +133,9 @@ final class ClipboardMonitor {
                 bundleId: bundleId,
                 hash: payload.hash
             )
-            onCapture?(outcome.item)
+            DispatchQueue.main.async { [weak self] in
+                self?.onCapture?(outcome.item)
+            }
 
             guard outcome.wasInserted, let url = outcome.item.url else { return }
             let context = ShortenRuleContext(
@@ -123,7 +145,9 @@ final class ClipboardMonitor {
                 date: Date()
             )
             if let rule = try rulesEngine.matchingRule(for: context) {
-                onAutoShorten?(outcome.item, rule)
+                DispatchQueue.main.async { [weak self] in
+                    self?.onAutoShorten?(outcome.item, rule)
+                }
             }
         } catch {
             NSLog("Clipshot: failed to capture clipboard item: \(error)")

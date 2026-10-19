@@ -308,6 +308,7 @@ struct TimelineView: View {
                             isSelected: item.id == appState.selectedItemID,
                             compact: isCompact,
                             appIcons: appState.appIcons,
+                            clipImages: appState.clipImages,
                             linkPreviews: appState.linkPreviews,
                             fetchLinkPreviews: appState.settings.fetchLinkPreviews,
                             isPaused: appState.isPaused,

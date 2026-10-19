@@ -6,6 +6,7 @@ struct ItemCard: View {
     let isSelected: Bool
     let compact: Bool
     @ObservedObject var appIcons: AppIconProvider
+    @ObservedObject var clipImages: ClipImageStore
     let linkPreviews: LinkPreviewStore
     let fetchLinkPreviews: Bool
     let isPaused: Bool
@@ -48,6 +49,7 @@ struct ItemCard: View {
         .help(item.displayText)
         .onAppear {
             appIcons.ensureLoaded(bundleId: item.bundleId)
+            clipImages.ensureLoaded(path: item.dataPath)
         }
     }
 
@@ -149,7 +151,7 @@ struct ItemCard: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
         case .image:
-            if let path = item.dataPath, let image = NSImage(contentsOfFile: path) {
+            if let image = clipImages.image(forPath: item.dataPath) {
                 Image(nsImage: image)
                     .resizable()
                     .aspectRatio(contentMode: .fill)

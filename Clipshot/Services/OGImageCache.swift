@@ -35,7 +35,6 @@ final class OGImageCache: @unchecked Sendable {
         self.negativeTTL = negativeTTL
         self.sizeLimit = sizeLimit
         self.now = now
-        try? fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
     }
 
     static func defaultDirectory() -> URL {
@@ -43,7 +42,7 @@ final class OGImageCache: @unchecked Sendable {
             for: .applicationSupportDirectory,
             in: .userDomainMask,
             appropriateFor: nil,
-            create: true
+            create: false
         )) ?? URL(fileURLWithPath: NSTemporaryDirectory())
         return base
             .appendingPathComponent("Clipshot", isDirectory: true)
@@ -54,6 +53,7 @@ final class OGImageCache: @unchecked Sendable {
 
     func lookup(url: URL) -> OGImageCacheResult {
         queue.sync {
+            ensureDirectoryLocked()
             let imageURL = imageFileURL(for: url)
             let negativeURL = negativeFileURL(for: url)
             let referenceDate = now()
@@ -85,6 +85,7 @@ final class OGImageCache: @unchecked Sendable {
 
     func storeImage(_ data: Data, for url: URL) {
         queue.sync {
+            ensureDirectoryLocked()
             let imageURL = imageFileURL(for: url)
             let negativeURL = negativeFileURL(for: url)
             let accessURL = accessFileURL(for: url)
@@ -102,6 +103,7 @@ final class OGImageCache: @unchecked Sendable {
 
     func storeFailure(for url: URL) {
         queue.sync {
+            ensureDirectoryLocked()
             let imageURL = imageFileURL(for: url)
             let negativeURL = negativeFileURL(for: url)
             let accessURL = accessFileURL(for: url)
@@ -119,6 +121,7 @@ final class OGImageCache: @unchecked Sendable {
 
     func clear() {
         queue.sync {
+            ensureDirectoryLocked()
             guard let contents = try? fileManager.contentsOfDirectory(
                 at: directory,
                 includingPropertiesForKeys: nil
@@ -131,7 +134,8 @@ final class OGImageCache: @unchecked Sendable {
 
     func currentSize() -> Int {
         queue.sync {
-            entryFiles().reduce(0) { $0 + $1.size }
+            ensureDirectoryLocked()
+            return entryFiles().reduce(0) { $0 + $1.size }
         }
     }
 
@@ -155,6 +159,10 @@ final class OGImageCache: @unchecked Sendable {
     }
 
     // MARK: - Locked helpers
+
+    private func ensureDirectoryLocked() {
+        try? fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
+    }
 
     private func modificationDate(of url: URL) -> Date? {
         guard let attributes = try? fileManager.attributesOfItem(atPath: url.path),

@@ -18,6 +18,7 @@
 		E91EC40266BB0A535B2F29CC /* AppSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3B166E7FC9714808C1C3682 /* AppSettings.swift */; };
 		25639005E19E49E68C2F6C7F /* BitlyBackend.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3CD8C212EF9D00C719535A25 /* BitlyBackend.swift */; };
 		9DB87E74F51AB10E7837713A /* BitlyClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A9A62D0658D11D68F3E67D0 /* BitlyClient.swift */; };
+		40F38BB41524F8C0B978784E /* ClipImageStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82AF73B799015CE27BFA1118 /* ClipImageStore.swift */; };
 		8B8CFDA8D119ACED6F210ECF /* ClipboardColorParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 069ECFE5F4682425D23DF44F /* ClipboardColorParser.swift */; };
 		D705755980C25C3EF795B8FE /* ClipboardMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 365C85CAE89B8C04C1B7C93F /* ClipboardMonitor.swift */; };
 		8E56BCCD2D1A10146253CDF7 /* ClipboardPayloadReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B50793816FE2E57DCD1C792 /* ClipboardPayloadReader.swift */; };
@@ -35,6 +36,7 @@
 		1C47CA9F8A7EF2F09DF46D9D /* QRGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 343D0FFF0DACC9AB1CB53B84 /* QRGenerator.swift */; };
 		79F553A5CC1DFBC412A24C54 /* ShortenRulesEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3D5E10CDB7BF61E37E54DC0 /* ShortenRulesEngine.swift */; };
 		7CBB0772D5F34DE966FD0B3D /* ShortenerBackend.swift in Sources */ = {isa = PBXBuildFile; fileRef = 691EE8E6E706A16E08C4B5DE /* ShortenerBackend.swift */; };
+		830C4F5EFF25926C860F025B /* SingleInstanceGuard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 007AD41709395700FCFCBDF3 /* SingleInstanceGuard.swift */; };
 		E8C65D4EBFC52271A0F1F7E0 /* CardAccentStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E46E6352D37FA796413BD29 /* CardAccentStyle.swift */; };
 		DAB81880EAF883AFCCCD71A9 /* ColorHex.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F8D1A5498FF0F78D9C6D6EC /* ColorHex.swift */; };
 		81F7DD45085BF43E3900BA1F /* ItemCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6904DA49733FB3B30CA59CD3 /* ItemCard.swift */; };
@@ -50,10 +52,12 @@
 		0AAC5192A5179E8704162B28 /* BitlyBackendTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF8CADCAF62CEABE04BF9314 /* BitlyBackendTests.swift */; };
 		AE33A5E256EA0CFB34C3CD36 /* CardAccentStyleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E5235066FF075673792E4D5 /* CardAccentStyleTests.swift */; };
 		DC2DF62FC7014B20747C1576 /* ClipboardColorParserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B65E6CD4CB3D9570DAF44B3 /* ClipboardColorParserTests.swift */; };
+		BF17C307C98162EBE6B33F8E /* ClipboardPayloadReaderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 354C4CDF90C9468DB5D12E52 /* ClipboardPayloadReaderTests.swift */; };
 		D147DB041647AE5C643B5A66 /* HistoryStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D3E191664E1B394E5A96EF4 /* HistoryStoreTests.swift */; };
 		3A5319481F591FF6CF39A3EC /* OGImageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D8E247866CADD40A7D9D1AB /* OGImageTests.swift */; };
 		0894293CE0852D2DA89FA228 /* PrivacyFilterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F468A156DB4611DFED78E898 /* PrivacyFilterTests.swift */; };
 		653BA1AAB4727C379CD05DB2 /* ShortenRulesEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7FC774F68F71CD5CFE7FAEA7 /* ShortenRulesEngineTests.swift */; };
+		41F42F6E317397D68EE34E40 /* SingleInstanceGuardTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E70FE57C2DED784E40B9ACC /* SingleInstanceGuardTests.swift */; };
 		BDB99B509FA27BB0ABC68CEF /* GRDB in Frameworks */ = {isa = PBXBuildFile; productRef = 9BB0FF97824890950A5A5DA6 /* GRDB */; };
 		CD2ACEFAF7B76F4EC73B7C0B /* GRDB in Frameworks */ = {isa = PBXBuildFile; productRef = D4F1A2E604D71C63072F39AA /* GRDB */; };
 /* End PBXBuildFile section */
@@ -80,6 +84,7 @@
 		F3B166E7FC9714808C1C3682 /* AppSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Clipshot/Services/AppSettings.swift; sourceTree = "<group>"; };
 		3CD8C212EF9D00C719535A25 /* BitlyBackend.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Clipshot/Services/BitlyBackend.swift; sourceTree = "<group>"; };
 		3A9A62D0658D11D68F3E67D0 /* BitlyClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Clipshot/Services/BitlyClient.swift; sourceTree = "<group>"; };
+		82AF73B799015CE27BFA1118 /* ClipImageStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Clipshot/Services/ClipImageStore.swift; sourceTree = "<group>"; };
 		069ECFE5F4682425D23DF44F /* ClipboardColorParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Clipshot/Services/ClipboardColorParser.swift; sourceTree = "<group>"; };
 		365C85CAE89B8C04C1B7C93F /* ClipboardMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Clipshot/Services/ClipboardMonitor.swift; sourceTree = "<group>"; };
 		0B50793816FE2E57DCD1C792 /* ClipboardPayloadReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Clipshot/Services/ClipboardPayloadReader.swift; sourceTree = "<group>"; };
@@ -97,6 +102,7 @@
 		343D0FFF0DACC9AB1CB53B84 /* QRGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Clipshot/Services/QRGenerator.swift; sourceTree = "<group>"; };
 		F3D5E10CDB7BF61E37E54DC0 /* ShortenRulesEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Clipshot/Services/ShortenRulesEngine.swift; sourceTree = "<group>"; };
 		691EE8E6E706A16E08C4B5DE /* ShortenerBackend.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Clipshot/Services/ShortenerBackend.swift; sourceTree = "<group>"; };
+		007AD41709395700FCFCBDF3 /* SingleInstanceGuard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Clipshot/Services/SingleInstanceGuard.swift; sourceTree = "<group>"; };
 		1E46E6352D37FA796413BD29 /* CardAccentStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Clipshot/UI/CardAccentStyle.swift; sourceTree = "<group>"; };
 		2F8D1A5498FF0F78D9C6D6EC /* ColorHex.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Clipshot/UI/ColorHex.swift; sourceTree = "<group>"; };
 		6904DA49733FB3B30CA59CD3 /* ItemCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Clipshot/UI/ItemCard.swift; sourceTree = "<group>"; };
@@ -112,10 +118,12 @@
 		BF8CADCAF62CEABE04BF9314 /* BitlyBackendTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipshotTests/BitlyBackendTests.swift; sourceTree = "<group>"; };
 		1E5235066FF075673792E4D5 /* CardAccentStyleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipshotTests/CardAccentStyleTests.swift; sourceTree = "<group>"; };
 		3B65E6CD4CB3D9570DAF44B3 /* ClipboardColorParserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipshotTests/ClipboardColorParserTests.swift; sourceTree = "<group>"; };
+		354C4CDF90C9468DB5D12E52 /* ClipboardPayloadReaderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipshotTests/ClipboardPayloadReaderTests.swift; sourceTree = "<group>"; };
 		0D3E191664E1B394E5A96EF4 /* HistoryStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipshotTests/HistoryStoreTests.swift; sourceTree = "<group>"; };
 		0D8E247866CADD40A7D9D1AB /* OGImageTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipshotTests/OGImageTests.swift; sourceTree = "<group>"; };
 		F468A156DB4611DFED78E898 /* PrivacyFilterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipshotTests/PrivacyFilterTests.swift; sourceTree = "<group>"; };
 		7FC774F68F71CD5CFE7FAEA7 /* ShortenRulesEngineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipshotTests/ShortenRulesEngineTests.swift; sourceTree = "<group>"; };
+		0E70FE57C2DED784E40B9ACC /* SingleInstanceGuardTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipshotTests/SingleInstanceGuardTests.swift; sourceTree = "<group>"; };
 		84337AD8D27FCD69AF2C4FC2 /* Clipshot.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Clipshot.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		DFDED23FA58339F9273F6C84 /* ClipshotTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ClipshotTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -163,6 +171,7 @@
 				F3B166E7FC9714808C1C3682 /* AppSettings.swift */,
 				3CD8C212EF9D00C719535A25 /* BitlyBackend.swift */,
 				3A9A62D0658D11D68F3E67D0 /* BitlyClient.swift */,
+				82AF73B799015CE27BFA1118 /* ClipImageStore.swift */,
 				069ECFE5F4682425D23DF44F /* ClipboardColorParser.swift */,
 				365C85CAE89B8C04C1B7C93F /* ClipboardMonitor.swift */,
 				0B50793816FE2E57DCD1C792 /* ClipboardPayloadReader.swift */,
@@ -180,6 +189,7 @@
 				343D0FFF0DACC9AB1CB53B84 /* QRGenerator.swift */,
 				F3D5E10CDB7BF61E37E54DC0 /* ShortenRulesEngine.swift */,
 				691EE8E6E706A16E08C4B5DE /* ShortenerBackend.swift */,
+				007AD41709395700FCFCBDF3 /* SingleInstanceGuard.swift */,
 				1E46E6352D37FA796413BD29 /* CardAccentStyle.swift */,
 				2F8D1A5498FF0F78D9C6D6EC /* ColorHex.swift */,
 				6904DA49733FB3B30CA59CD3 /* ItemCard.swift */,
@@ -202,10 +212,12 @@
 				BF8CADCAF62CEABE04BF9314 /* BitlyBackendTests.swift */,
 				1E5235066FF075673792E4D5 /* CardAccentStyleTests.swift */,
 				3B65E6CD4CB3D9570DAF44B3 /* ClipboardColorParserTests.swift */,
+				354C4CDF90C9468DB5D12E52 /* ClipboardPayloadReaderTests.swift */,
 				0D3E191664E1B394E5A96EF4 /* HistoryStoreTests.swift */,
 				0D8E247866CADD40A7D9D1AB /* OGImageTests.swift */,
 				F468A156DB4611DFED78E898 /* PrivacyFilterTests.swift */,
 				7FC774F68F71CD5CFE7FAEA7 /* ShortenRulesEngineTests.swift */,
+				0E70FE57C2DED784E40B9ACC /* SingleInstanceGuardTests.swift */,
 			);
 			name = ClipshotTests;
 			sourceTree = "<group>";
@@ -337,6 +349,7 @@
 				E91EC40266BB0A535B2F29CC /* AppSettings.swift in Sources */,
 				25639005E19E49E68C2F6C7F /* BitlyBackend.swift in Sources */,
 				9DB87E74F51AB10E7837713A /* BitlyClient.swift in Sources */,
+				40F38BB41524F8C0B978784E /* ClipImageStore.swift in Sources */,
 				8B8CFDA8D119ACED6F210ECF /* ClipboardColorParser.swift in Sources */,
 				D705755980C25C3EF795B8FE /* ClipboardMonitor.swift in Sources */,
 				8E56BCCD2D1A10146253CDF7 /* ClipboardPayloadReader.swift in Sources */,
@@ -354,6 +367,7 @@
 				1C47CA9F8A7EF2F09DF46D9D /* QRGenerator.swift in Sources */,
 				79F553A5CC1DFBC412A24C54 /* ShortenRulesEngine.swift in Sources */,
 				7CBB0772D5F34DE966FD0B3D /* ShortenerBackend.swift in Sources */,
+				830C4F5EFF25926C860F025B /* SingleInstanceGuard.swift in Sources */,
 				E8C65D4EBFC52271A0F1F7E0 /* CardAccentStyle.swift in Sources */,
 				DAB81880EAF883AFCCCD71A9 /* ColorHex.swift in Sources */,
 				81F7DD45085BF43E3900BA1F /* ItemCard.swift in Sources */,
@@ -376,10 +390,12 @@
 				0AAC5192A5179E8704162B28 /* BitlyBackendTests.swift in Sources */,
 				AE33A5E256EA0CFB34C3CD36 /* CardAccentStyleTests.swift in Sources */,
 				DC2DF62FC7014B20747C1576 /* ClipboardColorParserTests.swift in Sources */,
+				BF17C307C98162EBE6B33F8E /* ClipboardPayloadReaderTests.swift in Sources */,
 				D147DB041647AE5C643B5A66 /* HistoryStoreTests.swift in Sources */,
 				3A5319481F591FF6CF39A3EC /* OGImageTests.swift in Sources */,
 				0894293CE0852D2DA89FA228 /* PrivacyFilterTests.swift in Sources */,
 				653BA1AAB4727C379CD05DB2 /* ShortenRulesEngineTests.swift in Sources */,
+				41F42F6E317397D68EE34E40 /* SingleInstanceGuardTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

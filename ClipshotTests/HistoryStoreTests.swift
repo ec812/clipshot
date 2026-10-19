@@ -206,4 +206,22 @@ final class HistoryStoreTests: XCTestCase {
         XCTAssertEqual(FTSQuery.make(from: "one, two!"), "\"one\"* AND \"two\"*")
         XCTAssertEqual(FTSQuery.make(from: "\"quoted\""), "\"quoted\"*")
     }
+
+    func testFileDatabaseUsesWALAndBusyTimeout() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ClipshotDBTests-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let store = try HistoryStore(path: directory.appendingPathComponent("test.sqlite").path)
+        let journalMode = try store.dbQueue.read { db in
+            try String.fetchOne(db, sql: "PRAGMA journal_mode")
+        }
+        let busyTimeout = try store.dbQueue.read { db in
+            try Int.fetchOne(db, sql: "PRAGMA busy_timeout")
+        }
+
+        XCTAssertEqual(journalMode?.lowercased(), "wal")
+        XCTAssertEqual(busyTimeout, 5000)
+    }
 }

@@ -162,9 +162,14 @@ final class AppIconProviderCacheTests: XCTestCase {
 
         _ = AppIconProvider(cacheDirectory: directory)
 
-        XCTAssertFalse(fileManager.fileExists(atPath: legacyIcon.path))
-        XCTAssertFalse(fileManager.fileExists(atPath: legacyAccent.path))
+        XCTAssertTrue(waitUntil {
+            !fileManager.fileExists(atPath: legacyIcon.path)
+                && !fileManager.fileExists(atPath: legacyAccent.path)
+        })
         let marker = directory.appendingPathComponent("cache-version")
+        XCTAssertTrue(waitUntil {
+            fileManager.fileExists(atPath: marker.path)
+        })
         XCTAssertEqual(
             try String(contentsOf: marker, encoding: .utf8).trimmingCharacters(in: .whitespacesAndNewlines),
             "v2"
@@ -173,11 +178,23 @@ final class AppIconProviderCacheTests: XCTestCase {
 
     func testCurrentVersionCacheIsPreserved() throws {
         _ = AppIconProvider(cacheDirectory: directory)
+        let marker = directory.appendingPathComponent("cache-version")
+        XCTAssertTrue(waitUntil { fileManager.fileExists(atPath: marker.path) })
 
         let sentinel = directory.appendingPathComponent("sentinel.txt")
         try Data([0x03]).write(to: sentinel)
 
         _ = AppIconProvider(cacheDirectory: directory)
+        RunLoop.current.run(until: Date().addingTimeInterval(0.3))
         XCTAssertTrue(fileManager.fileExists(atPath: sentinel.path))
+    }
+
+    private func waitUntil(timeout: TimeInterval = 2, _ condition: () -> Bool) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if condition() { return true }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.02))
+        }
+        return condition()
     }
 }

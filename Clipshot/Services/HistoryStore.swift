@@ -9,17 +9,44 @@ struct InsertOutcome {
 final class HistoryStore: ShortLinkCaching, @unchecked Sendable {
     let dbQueue: DatabaseQueue
 
-    init(dbQueue: DatabaseQueue) throws {
+    static let configuration: Configuration = {
+        var configuration = Configuration()
+        configuration.journalMode = .wal
+        configuration.busyMode = .timeout(5)
+        return configuration
+    }()
+
+    enum MigrationMode {
+        case immediately
+        case deferred
+    }
+
+    init(dbQueue: DatabaseQueue, migration: MigrationMode = .immediately) throws {
         self.dbQueue = dbQueue
+        if migration == .immediately {
+            try Self.migrator.migrate(dbQueue)
+        }
+    }
+
+    convenience init(path: String, migration: MigrationMode = .immediately) throws {
+        try self.init(
+            dbQueue: DatabaseQueue(path: path, configuration: Self.configuration),
+            migration: migration
+        )
+    }
+
+    /// Opens the app database without running migrations. The app runs
+    /// `migrateIfNeeded()` on a background task before its first query.
+    static func deferred(path: String) throws -> HistoryStore {
+        try HistoryStore(dbQueue: DatabaseQueue(path: path, configuration: configuration), migration: .deferred)
+    }
+
+    func migrateIfNeeded() throws {
         try Self.migrator.migrate(dbQueue)
     }
 
-    convenience init(path: String) throws {
-        try self.init(dbQueue: DatabaseQueue(path: path))
-    }
-
     static func inMemory() throws -> HistoryStore {
-        try HistoryStore(dbQueue: DatabaseQueue())
+        try HistoryStore(dbQueue: DatabaseQueue(configuration: Self.configuration))
     }
 
     static func defaultDatabaseURL() throws -> URL {

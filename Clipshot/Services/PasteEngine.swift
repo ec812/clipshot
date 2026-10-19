@@ -62,9 +62,10 @@ final class PasteEngine {
     }
 
     @discardableResult
-    func paste(_ item: ClipboardItem, plainText: Bool = false, textOverride: String? = nil) -> PasteOutcome {
+    func paste(_ item: ClipboardItem, plainText: Bool = false, textOverride: String? = nil) async -> PasteOutcome {
+        let payloadData = (plainText || textOverride != nil) ? nil : await loadPayloadData(for: item)
         let snapshot = PasteboardSnapshot(pasteboard)
-        guard write(item, plainText: plainText, textOverride: textOverride) else {
+        guard write(item, plainText: plainText, textOverride: textOverride, payloadData: payloadData) else {
             return .failed("This item has no pasteable content.")
         }
         noteOwnWrite()
@@ -79,8 +80,9 @@ final class PasteEngine {
         return .pasted
     }
 
-    func copyToClipboard(_ item: ClipboardItem, textOverride: String? = nil) {
-        _ = write(item, plainText: false, textOverride: textOverride)
+    func copyToClipboard(_ item: ClipboardItem, textOverride: String? = nil) async {
+        let payloadData = textOverride == nil ? await loadPayloadData(for: item) : nil
+        _ = write(item, plainText: false, textOverride: textOverride, payloadData: payloadData)
         noteOwnWrite()
     }
 
@@ -90,9 +92,23 @@ final class PasteEngine {
         noteOwnWrite()
     }
 
+    private func loadPayloadData(for item: ClipboardItem) async -> Data? {
+        guard item.kind == .rtf || item.kind == .image,
+              let path = item.dataPath
+        else { return nil }
+        return await Task.detached(priority: .userInitiated) {
+            try? Data(contentsOf: URL(fileURLWithPath: path))
+        }.value
+    }
+
     // MARK: - Writing
 
-    private func write(_ item: ClipboardItem, plainText: Bool, textOverride: String?) -> Bool {
+    private func write(
+        _ item: ClipboardItem,
+        plainText: Bool,
+        textOverride: String?,
+        payloadData: Data?
+    ) -> Bool {
         pasteboard.clearContents()
 
         if plainText {
@@ -128,9 +144,8 @@ final class PasteEngine {
             pasteboard.setString(text, forType: .URL)
 
         case .rtf:
-            if let path = item.dataPath,
-               let data = try? Data(contentsOf: URL(fileURLWithPath: path)) {
-                pasteboard.setData(data, forType: .rtf)
+            if let payloadData {
+                pasteboard.setData(payloadData, forType: .rtf)
             }
             if let text = item.text {
                 pasteboard.setString(text, forType: .string)
@@ -140,12 +155,8 @@ final class PasteEngine {
             }
 
         case .image:
-            if let path = item.dataPath,
-               let data = try? Data(contentsOf: URL(fileURLWithPath: path)) {
-                pasteboard.setData(data, forType: .png)
-            } else {
-                return false
-            }
+            guard let payloadData else { return false }
+            pasteboard.setData(payloadData, forType: .png)
 
         case .file:
             guard let text = item.text,

@@ -21,6 +21,7 @@ final class AppState: ObservableObject {
     let quickLook = QuickLookPresenter()
     let appIcons = AppIconProvider()
     let linkPreviews = LinkPreviewStore()
+    let clipImages = ClipImageStore()
 
     lazy var pasteEngine: PasteEngine = PasteEngine(
         noteOwnWrite: { [weak self] in self?.monitor.noteOwnWrite() }
@@ -69,6 +70,8 @@ final class AppState: ObservableObject {
     private var reloadTask: Task<Void, Never>?
     private var toastTask: Task<Void, Never>?
     private var pauseTask: Task<Void, Never>?
+    private var distributedObserver: NSObjectProtocol?
+    private var reloadGeneration = 0
     private var cancellables = Set<AnyCancellable>()
 
     init(
@@ -87,7 +90,7 @@ final class AppState: ObservableObject {
         } else {
             do {
                 let url = try HistoryStore.defaultDatabaseURL()
-                resolvedStore = try HistoryStore(path: url.path)
+                resolvedStore = try HistoryStore.deferred(path: url.path)
             } catch {
                 NSLog("Clipshot: could not open history database, using memory store: \(error)")
                 resolvedStore = try! HistoryStore.inMemory()
@@ -143,18 +146,33 @@ final class AppState: ObservableObject {
         started = true
 
         applyActivationPolicy()
-        reload()
         refreshAccessibility()
-        if !isTesting {
-            applyHotkeys()
-        }
 
-        if startMonitoring {
-            monitor.start()
+        let store = self.store
+        let retentionDays = settings.retentionDays
+        Task.detached(priority: .userInitiated) { [weak self] in
+            do {
+                try store.migrateIfNeeded()
+                _ = try? store.applyRetention(days: retentionDays)
+            } catch {
+                await MainActor.run {
+                    self?.lastError = error.localizedDescription
+                }
+            }
+            await MainActor.run {
+                guard let self else { return }
+                self.reload()
+                if self.startMonitoring {
+                    self.monitor.start()
+                }
+                if !self.isTesting {
+                    self.applyHotkeys()
+                }
+                if !self.settings.hasCompletedOnboarding, !self.isTesting {
+                    self.presentOnboarding()
+                }
+            }
         }
-
-        _ = try? store.applyRetention(days: settings.retentionDays)
-        reload()
 
         NotificationCenter.default.addObserver(
             forName: NSApplication.didBecomeActiveNotification,
@@ -166,8 +184,14 @@ final class AppState: ObservableObject {
             }
         }
 
-        if !settings.hasCompletedOnboarding, !isTesting {
-            presentOnboarding()
+        distributedObserver = DistributedNotificationCenter.default().addObserver(
+            forName: SingleInstanceGuard.showOverlayNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                self?.overlayController.show()
+            }
         }
     }
 
@@ -191,29 +215,67 @@ final class AppState: ObservableObject {
     }
 
     func reload() {
-        do {
-            var loaded = try store.search(
-                searchText,
-                kind: filterKind,
-                bundleId: filterBundleId
-            )
-            if filterPinnedOnly {
-                loaded = loaded.filter(\.isPinned)
-            }
-            if let pinboard = filterPinboardID {
-                loaded = loaded.filter { $0.pinboardId == pinboard }
-            }
+        reloadGeneration &+= 1
+        let generation = reloadGeneration
+        let query = searchText
+        let kind = filterKind
+        let bundleId = filterBundleId
+        let pinnedOnly = filterPinnedOnly
+        let pinboardID = filterPinboardID
+        let store = self.store
 
-            items = loaded
-            if selectedItemID == nil || !items.contains(where: { $0.id == selectedItemID }) {
-                selectedItemID = items.first?.id
+        Task.detached(priority: .userInitiated) {
+            do {
+                var loaded = try store.search(query, kind: kind, bundleId: bundleId)
+                if pinnedOnly {
+                    loaded = loaded.filter(\.isPinned)
+                }
+                if let pinboardID {
+                    loaded = loaded.filter { $0.pinboardId == pinboardID }
+                }
+                let sources = try store.distinctSources()
+                let boards = try store.pinboards()
+                let rules = try store.shortenRules()
+                let links = try store.cachedShortLinks(limit: 50)
+
+                await MainActor.run { [weak self] in
+                    guard let self, generation == self.reloadGeneration else { return }
+                    self.items = loaded
+                    if self.selectedItemID == nil
+                        || !loaded.contains(where: { $0.id == self.selectedItemID }) {
+                        self.selectedItemID = loaded.first?.id
+                    }
+                    self.sourceApps = sources
+                    self.pinboards = boards
+                    self.rules = rules
+                    self.recentShortLinks = links
+                }
+            } catch {
+                await MainActor.run { [weak self] in
+                    self?.lastError = error.localizedDescription
+                }
             }
-            sourceApps = try store.distinctSources()
-            pinboards = try store.pinboards()
-            rules = try store.shortenRules()
-            recentShortLinks = try store.cachedShortLinks(limit: 50)
-        } catch {
-            lastError = error.localizedDescription
+        }
+    }
+
+    /// Runs a store mutation away from the main actor, then refreshes the UI.
+    private func performStoreWrite(
+        _ operation: @escaping (HistoryStore) throws -> Void,
+        completion: @escaping () -> Void = {}
+    ) {
+        let store = self.store
+        Task.detached(priority: .userInitiated) {
+            do {
+                try operation(store)
+                await MainActor.run { [weak self] in
+                    completion()
+                    self?.reload()
+                }
+            } catch {
+                await MainActor.run { [weak self] in
+                    self?.lastError = error.localizedDescription
+                }
+            }
         }
     }
 
@@ -242,21 +304,32 @@ final class AppState: ObservableObject {
     // MARK: - Actions
 
     func copy(_ item: ClipboardItem) {
-        pasteEngine.copyToClipboard(item, textOverride: preferredText(for: item, preferShort: false))
-        showToast("Copied")
+        let override = preferredText(for: item, preferShort: false)
+        Task { [weak self] in
+            guard let self else { return }
+            await self.pasteEngine.copyToClipboard(item, textOverride: override)
+            self.showToast("Copied")
+        }
     }
 
     func paste(_ item: ClipboardItem, plainText: Bool = false) {
         let override = preferredText(for: item, preferShort: false)
         overlayController.hide()
-        let outcome = pasteEngine.paste(item, plainText: plainText, textOverride: override)
-        switch outcome {
-        case .pasted:
-            break
-        case .copiedToClipboard:
-            showToast("Copied — Accessibility permission is needed to paste directly")
-        case .failed(let message):
-            showToast(message)
+        Task { [weak self] in
+            guard let self else { return }
+            let outcome = await self.pasteEngine.paste(
+                item,
+                plainText: plainText,
+                textOverride: override
+            )
+            switch outcome {
+            case .pasted:
+                break
+            case .copiedToClipboard:
+                self.showToast("Copied — Accessibility permission is needed to paste directly")
+            case .failed(let message):
+                self.showToast(message)
+            }
         }
     }
 
@@ -284,89 +357,76 @@ final class AppState: ObservableObject {
 
     func togglePin(_ item: ClipboardItem) {
         guard let id = item.id else { return }
-        do {
-            try store.setPinned(!item.isPinned, for: id)
-            reload()
-            showToast(item.isPinned ? "Unpinned" : "Pinned")
-        } catch {
-            lastError = error.localizedDescription
-        }
+        let pinned = !item.isPinned
+        performStoreWrite({ store in
+            try store.setPinned(pinned, for: id)
+        }, completion: { [weak self] in
+            self?.showToast(pinned ? "Pinned" : "Unpinned")
+        })
     }
 
     func addToPinboard(_ item: ClipboardItem, pinboard: Pinboard) {
         guard let itemID = item.id, let pinboardID = pinboard.id else { return }
-        do {
+        let pinboardName = pinboard.name
+        performStoreWrite({ store in
             try store.addItem(itemID, toPinboard: pinboardID)
-            reload()
-            showToast("Added to \(pinboard.name)")
-        } catch {
-            lastError = error.localizedDescription
-        }
+        }, completion: { [weak self] in
+            self?.showToast("Added to \(pinboardName)")
+        })
     }
 
     func removeFromPinboard(_ item: ClipboardItem) {
         guard let itemID = item.id else { return }
-        do {
+        performStoreWrite({ store in
             try store.removeItemFromPinboard(itemID)
-            reload()
-        } catch {
-            lastError = error.localizedDescription
-        }
+        })
     }
 
     func delete(_ item: ClipboardItem) {
         guard let id = item.id else { return }
-        do {
-            if let path = item.dataPath {
+        let dataStore = self.dataStore
+        let path = item.dataPath
+        performStoreWrite({ store in
+            if let path {
                 dataStore.delete(atPath: path)
             }
             try store.deleteItem(id: id)
-            reload()
-        } catch {
-            lastError = error.localizedDescription
-        }
+        })
     }
 
     func createPinboard(name: String, colorHex: String) {
-        do {
+        performStoreWrite({ store in
             _ = try store.createPinboard(name: name, colorHex: colorHex)
-            pinboards = try store.pinboards()
-            showToast("Pinboard created")
-        } catch {
-            lastError = error.localizedDescription
-        }
+        }, completion: { [weak self] in
+            self?.showToast("Pinboard created")
+        })
     }
 
     func deletePinboard(_ pinboard: Pinboard) {
         guard let id = pinboard.id else { return }
-        do {
+        let shouldClearFilter = filterPinboardID == id
+        performStoreWrite({ store in
             try store.deletePinboard(id: id)
-            if filterPinboardID == id { filterPinboardID = nil }
-            reload()
-        } catch {
-            lastError = error.localizedDescription
-        }
+        }, completion: { [weak self] in
+            if shouldClearFilter {
+                self?.filterPinboardID = nil
+            }
+        })
     }
 
     // MARK: - Auto-shorten rules
 
     func saveRule(_ rule: ShortenRule) {
-        do {
+        performStoreWrite({ store in
             _ = try store.saveShortenRule(rule)
-            rules = try store.shortenRules()
-        } catch {
-            lastError = error.localizedDescription
-        }
+        })
     }
 
     func deleteRule(_ rule: ShortenRule) {
         guard let id = rule.id else { return }
-        do {
+        performStoreWrite({ store in
             try store.deleteShortenRule(id: id)
-            rules = try store.shortenRules()
-        } catch {
-            lastError = error.localizedDescription
-        }
+        })
     }
 
     // MARK: - Credentials
@@ -402,7 +462,9 @@ final class AppState: ObservableObject {
         pasteStackCount = pasteStack.count
         let override = preferredText(for: next, preferShort: settings.preferShortLinks)
         overlayController.hide()
-        _ = pasteEngine.paste(next, plainText: false, textOverride: override)
+        Task { [weak self] in
+            _ = await self?.pasteEngine.paste(next, plainText: false, textOverride: override)
+        }
     }
 
     func clearPasteStack() {
@@ -426,10 +488,13 @@ final class AppState: ObservableObject {
 
     func saveEditor(_ request: EditorRequest, text: String, title: String) {
         let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
-        do {
+        guard request.mode != .newSnippet
+            || !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        else { return }
+
+        performStoreWrite({ store in
             switch request.mode {
             case .newSnippet:
-                guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
                 let hash = ClipboardPayloadReader.hash(kind: .text, strings: [text])
                 _ = try store.insert(
                     kind: .text,
@@ -441,17 +506,15 @@ final class AppState: ObservableObject {
                     isSnippet: true
                 )
             case .editText:
-                guard let item = request.item, let id = item.id else { return }
+                guard let id = request.item?.id else { return }
                 try store.updateText(text, title: trimmedTitle.isEmpty ? nil : trimmedTitle, for: id)
             case .rename:
-                guard let item = request.item, let id = item.id else { return }
+                guard let id = request.item?.id else { return }
                 try store.rename(trimmedTitle, for: id)
             }
-            editorRequest = nil
-            reload()
-        } catch {
-            lastError = error.localizedDescription
-        }
+        }, completion: { [weak self] in
+            self?.editorRequest = nil
+        })
     }
 
     // MARK: - Shortening
@@ -505,11 +568,24 @@ final class AppState: ObservableObject {
                 slug: slug,
                 tags: tags
             )
-            if let itemID = item.id {
-                try store.setShortURL(link.shortUrl, for: itemID)
-            }
-            insertShortLinkHistoryItem(link)
-            recentShortLinks = try store.cachedShortLinks(limit: 50)
+            let store = self.store
+            let itemID = item.id
+            let links = try await Task.detached(priority: .userInitiated) { () -> [ShortLink] in
+                if let itemID {
+                    try store.setShortURL(link.shortUrl, for: itemID)
+                }
+                let hash = ClipboardPayloadReader.hash(kind: .url, strings: [link.shortUrl])
+                _ = try? store.insert(
+                    kind: .url,
+                    text: link.shortUrl,
+                    title: link.title ?? link.destinationUrl,
+                    sourceApp: "Clipshot",
+                    bundleId: "com.ernest.clipshot",
+                    hash: hash
+                )
+                return try store.cachedShortLinks(limit: 50)
+            }.value
+            recentShortLinks = links
             pasteEngine.copyText(link.shortUrl)
             reload()
             shortenRequest = nil
@@ -536,14 +612,27 @@ final class AppState: ObservableObject {
                     slug: slug,
                     tags: []
                 )
-                if let itemID = item.id {
-                    try? self.store.setShortURL(link.shortUrl, for: itemID)
-                }
-                self.insertShortLinkHistoryItem(link)
+                let store = self.store
+                let itemID = item.id
+                let links = try await Task.detached(priority: .userInitiated) { () -> [ShortLink] in
+                    if let itemID {
+                        try store.setShortURL(link.shortUrl, for: itemID)
+                    }
+                    let hash = ClipboardPayloadReader.hash(kind: .url, strings: [link.shortUrl])
+                    _ = try? store.insert(
+                        kind: .url,
+                        text: link.shortUrl,
+                        title: link.title ?? link.destinationUrl,
+                        sourceApp: "Clipshot",
+                        bundleId: "com.ernest.clipshot",
+                        hash: hash
+                    )
+                    return try store.cachedShortLinks(limit: 50)
+                }.value
                 if rule.autoCopy {
                     self.pasteEngine.copyText(link.shortUrl)
                 }
-                self.recentShortLinks = (try? self.store.cachedShortLinks(limit: 50)) ?? []
+                self.recentShortLinks = links
                 self.reload()
                 self.showToast(
                     rule.autoCopy
@@ -554,20 +643,6 @@ final class AppState: ObservableObject {
                 self.showToast("Auto-shorten failed: \(error.localizedDescription)")
             }
         }
-    }
-
-    /// The short URL becomes its own history item, so it can be searched,
-    /// pinned or QR'd later like any other copy.
-    private func insertShortLinkHistoryItem(_ link: ShortLink) {
-        let hash = ClipboardPayloadReader.hash(kind: .url, strings: [link.shortUrl])
-        _ = try? store.insert(
-            kind: .url,
-            text: link.shortUrl,
-            title: link.title ?? link.destinationUrl,
-            sourceApp: "Clipshot",
-            bundleId: "com.ernest.clipshot",
-            hash: hash
-        )
     }
 
     func verifyBackend() async {
@@ -591,7 +666,11 @@ final class AppState: ObservableObject {
 
         do {
             let stats = try await backend.clickStats(for: link.id)
-            recentShortLinks = try store.cachedShortLinks(limit: 50)
+            let store = self.store
+            let links = (try? await Task.detached(priority: .utility) {
+                try store.cachedShortLinks(limit: 50)
+            }.value) ?? []
+            recentShortLinks = links
             showToast("\(stats.totalClicks) click\(stats.totalClicks == 1 ? "" : "s") — \(link.shortUrl)")
         } catch {
             lastError = error.localizedDescription
@@ -599,12 +678,9 @@ final class AppState: ObservableObject {
     }
 
     func deleteCachedLink(_ link: ShortLink) {
-        do {
+        performStoreWrite({ store in
             try store.deleteShortLink(id: link.id)
-            recentShortLinks = try store.cachedShortLinks(limit: 50)
-        } catch {
-            lastError = error.localizedDescription
-        }
+        })
     }
 
     func clearPreviewCache() {
@@ -681,8 +757,10 @@ final class AppState: ObservableObject {
                 try hotkeyManager.register(settings.hotkey(for: action), for: action) { [weak self] in
                     self?.performHotkey(action)
                 }
+                NSLog("Clipshot: registered hotkey \(action.rawValue) = \(settings.hotkey(for: action).displayString)")
             } catch {
                 hotkeyError = error.localizedDescription
+                NSLog("Clipshot: hotkey registration FAILED for \(action.rawValue): \(error.localizedDescription)")
             }
         }
     }

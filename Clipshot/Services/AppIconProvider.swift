@@ -108,17 +108,16 @@ final class AppIconProvider: ObservableObject {
                 for: .applicationSupportDirectory,
                 in: .userDomainMask,
                 appropriateFor: nil,
-                create: true
+                create: false
             )) ?? URL(fileURLWithPath: NSTemporaryDirectory())
             self.cacheDirectory = base
                 .appendingPathComponent("Clipshot", isDirectory: true)
                 .appendingPathComponent("AppIcons", isDirectory: true)
         }
-        try? FileManager.default.createDirectory(
-            at: self.cacheDirectory,
-            withIntermediateDirectories: true
-        )
-        Self.prepareCacheDirectory(self.cacheDirectory)
+        let directory = self.cacheDirectory
+        Task.detached(priority: .utility) {
+            Self.prepareCacheDirectory(directory)
+        }
         self.genericIcon = NSImage(named: NSImage.applicationIconName)
             ?? NSImage(size: NSSize(width: 32, height: 32))
     }
@@ -146,50 +145,47 @@ final class AppIconProvider: ObservableObject {
         let iconURL = Self.fileURL(bundleId: bundleId, suffix: "v2.png", in: cacheDirectory)
         let accentURL = Self.fileURL(bundleId: bundleId, suffix: "v2.accent", in: cacheDirectory)
 
-        var icon: NSImage?
-        var pngToWrite: Data?
-
-        if let data = try? Data(contentsOf: iconURL), let cached = NSImage(data: data) {
-            icon = cached
-        } else if let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleId) {
-            let fetched = NSWorkspace.shared.icon(forFile: appURL.path)
-            icon = fetched
-            pngToWrite = Self.pngData(fetched)
-        }
-
-        inFlight.remove(bundleId)
-
-        guard let icon else {
-            missing.insert(bundleId)
-            revision &+= 1
-            return
-        }
-
-        icons[bundleId] = icon
-        revision &+= 1
-
-        if let pngToWrite {
-            let url = iconURL
-            Task.detached(priority: .utility) {
-                try? pngToWrite.write(to: url, options: .atomic)
-            }
-        }
-
-        if let cachedAccent = Self.readAccent(from: accentURL) {
-            accents[bundleId] = cachedAccent
-            revision &+= 1
-            return
-        }
-
-        guard let cgImage = icon.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
-            return
-        }
-
         Task.detached(priority: .utility) { [self] in
-            guard let accent = AppIconAccent.dominantAccent(from: cgImage) else { return }
-            Self.writeAccent(accent, to: accentURL)
+            try? FileManager.default.createDirectory(
+                at: cacheDirectory,
+                withIntermediateDirectories: true
+            )
+            var icon: NSImage?
+            var iconPNG: Data?
+
+            if let data = try? Data(contentsOf: iconURL) {
+                icon = NSImage(data: data)
+            }
+            if icon == nil,
+               let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleId) {
+                let fetched = NSWorkspace.shared.icon(forFile: appURL.path)
+                icon = fetched
+                iconPNG = Self.pngData(fetched)
+            }
+
+            if let iconPNG {
+                try? iconPNG.write(to: iconURL, options: .atomic)
+            }
+
+            var accent = Self.readAccent(from: accentURL)
+            if accent == nil, let icon,
+               let cgImage = icon.cgImage(forProposedRect: nil, context: nil, hints: nil) {
+                accent = AppIconAccent.dominantAccent(from: cgImage)
+                if let accent {
+                    Self.writeAccent(accent, to: accentURL)
+                }
+            }
+
             await MainActor.run {
-                self.accents[bundleId] = accent
+                self.inFlight.remove(bundleId)
+                if let icon {
+                    self.icons[bundleId] = icon
+                } else {
+                    self.missing.insert(bundleId)
+                }
+                if let accent {
+                    self.accents[bundleId] = accent
+                }
                 self.revision &+= 1
             }
         }
@@ -199,7 +195,12 @@ final class AppIconProvider: ObservableObject {
 
     /// Bumping the cache version discards icons/accents written by older builds
     /// (for example, entries produced before accent extraction was corrected).
-    private static func prepareCacheDirectory(_ directory: URL) {
+    /// Runs off the main actor. V2 files written concurrently are preserved.
+    nonisolated private static func prepareCacheDirectory(_ directory: URL) {
+        try? FileManager.default.createDirectory(
+            at: directory,
+            withIntermediateDirectories: true
+        )
         let marker = directory.appendingPathComponent(cacheVersionFile)
         let stored = (try? String(contentsOf: marker, encoding: .utf8))?
             .trimmingCharacters(in: .whitespacesAndNewlines)
@@ -210,26 +211,28 @@ final class AppIconProvider: ObservableObject {
             includingPropertiesForKeys: nil
         ) {
             for file in files {
+                let name = file.lastPathComponent
+                guard name != cacheVersionFile, !name.contains(".v2.") else { continue }
                 try? FileManager.default.removeItem(at: file)
             }
         }
         try? cacheVersion.write(to: marker, atomically: true, encoding: .utf8)
     }
 
-    private static func fileURL(bundleId: String, suffix: String, in directory: URL) -> URL {
+    nonisolated private static func fileURL(bundleId: String, suffix: String, in directory: URL) -> URL {
         let digest = SHA256.hash(data: Data(bundleId.utf8))
         let key = digest.map { String(format: "%02x", $0) }.joined()
         return directory.appendingPathComponent("\(key).\(suffix)")
     }
 
-    private static func pngData(_ image: NSImage) -> Data? {
+    nonisolated private static func pngData(_ image: NSImage) -> Data? {
         guard let tiff = image.tiffRepresentation,
               let representation = NSBitmapImageRep(data: tiff)
         else { return nil }
         return representation.representation(using: .png, properties: [:])
     }
 
-    private static func readAccent(from url: URL) -> NSColor? {
+    nonisolated private static func readAccent(from url: URL) -> NSColor? {
         guard let string = try? String(contentsOf: url, encoding: .utf8) else { return nil }
         let components = string
             .split(separator: ",")

@@ -7,6 +7,14 @@ struct ClipshotApp: App {
 
     init() {
         let isTesting = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+        if !isTesting {
+            guard SingleInstanceGuard.shared.acquire() else {
+                NSLog("Clipshot: another instance is already running; activating it and exiting (pid \(getpid()))")
+                SingleInstanceGuard.shared.activateExistingInstance()
+                exit(0)
+            }
+            NSLog("Clipshot: single-instance lock acquired (pid \(getpid()))")
+        }
         let state = AppState(startMonitoring: !isTesting)
         _appState = StateObject(wrappedValue: state)
         AppDelegate.sharedState = state
@@ -16,7 +24,7 @@ struct ClipshotApp: App {
         MenuBarExtra {
             MenuBarContent(appState: appState)
         } label: {
-            Image(systemName: appState.isPaused ? "pause.circle" : "doc.on.clipboard")
+            Image(systemName: menuBarSymbol)
                 .accessibilityLabel("Clipshot")
         }
         .menuBarExtraStyle(.menu)
@@ -24,6 +32,11 @@ struct ClipshotApp: App {
         Settings {
             SettingsView(appState: appState)
         }
+    }
+
+    private var menuBarSymbol: String {
+        if appState.hotkeyError != nil { return "exclamationmark.triangle" }
+        return appState.isPaused ? "pause.circle" : "doc.on.clipboard"
     }
 }
 

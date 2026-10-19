@@ -14,18 +14,20 @@ xcodebuild -scheme Clipshot test
 Latest verified result on this machine (Xcode 27.1, macOS 27.0.1):
 
 - `xcodebuild -scheme Clipshot build` → **BUILD SUCCEEDED**
-- `xcodebuild -scheme Clipshot test` → **TEST SUCCEEDED** — 103 tests, 0 failures
-  - `HistoryStoreTests` — 12
+- `xcodebuild -scheme Clipshot test` → **TEST SUCCEEDED** — 111 tests, 0 failures
+  - `HistoryStoreTests` — 13
   - `PrivacyFilterTests` — 10
   - `BitlyBackendTests` — 17
   - `ShortenRulesEngineTests` — 10
   - `PasteStackTests` — 3
   - `ClipboardColorParserTests` — 20
+  - `ClipboardPayloadReaderTests` — 6
   - `OGImageParserTests` — 9
   - `OGImageCacheTests` — 6
   - `AppIconAccentTests` — 8
   - `AppIconProviderCacheTests` — 2
   - `CardAccentStyleTests` — 6
+  - `SingleInstanceGuardTests` — 1
 
 Note: Xcode prints unrelated `CoreDevice` / `CoreSimulator` warnings on this machine ("CoreSimulator is out of date"). They concern iOS device support and do not affect macOS builds or tests.
 
@@ -33,8 +35,10 @@ Note: Xcode prints unrelated `CoreDevice` / `CoreSimulator` warnings on this mac
 
 | Area | What is asserted |
 | --- | --- |
-| `HistoryStore` | insert, hash dedupe + timestamp bump, FTS5 prefix search, punctuation-safe queries, kind/bundle filters, retention (pinned kept), pinboards, short-link cache, rule ordering, edit/delete |
+| `HistoryStore` | insert, hash dedupe + timestamp bump, FTS5 prefix search, punctuation-safe queries, kind/bundle filters, retention (pinned kept), pinboards, short-link cache, rule ordering, edit/delete, WAL journal mode + 5 s busy timeout |
 | `PrivacyFilter` | ignore list, transient/auto-generated markers, concealment markers, pause expiry, resume, live ignore-list updates |
+| `ClipboardPayloadReader` | text/color/URL/file classification and image payload persistence from a background-safe pasteboard snapshot |
+| `SingleInstanceGuard` | second lock acquisition fails, pid is written, lock can be reacquired after release |
 | `BitlyBackend` | POST `/shorten` (Bearer header, `long_url`, `domain`, `group_guid`, cache), POST `/bitlinks` custom-slug path, 401 `INVALID_ARG_ACCESS_TOKEN`, 404, `BRANDED_LINK_MONTHLY_LIMIT_EXCEEDED`, `DNS_CONFIGURATION_ERROR`, validation, 503, missing token, PATCH update, DELETE, GET `/user` verify, clicks parsing + cache update, capabilities |
 | `ShortenRulesEngine` | URL/host globs, source app matching, priority order, disabled rules, slug tokens and sanitization, determinism |
 | `PasteStack` | FIFO order, count/active state, clear |
@@ -137,6 +141,14 @@ Copy each value below, then open the timeline. Every one must render a large rou
 - [ ] Quit and relaunch, open the timeline → icons and accents appear from cache without a visible delay.
 - [ ] Verify the cache version marker at `~/Library/Application Support/Clipshot/AppIcons/cache-version` reads `v2`; legacy `*.png`/`*.accent` entries from older builds are gone (one-time migration).
 - [ ] Remove/uninstall an app whose clipboard item is still in history (or use an item with an unknown bundle id) → a generic app icon is shown instead of a blank.
+
+### Lifecycle / single instance
+- [ ] Start Clipshot, then start the same binary/app again without quitting the first → the second process logs `another instance is already running; activating it and exiting`, exits immediately, and exactly one Clipshot process remains.
+- [ ] Verify `~/Library/Application Support/Clipshot/clipshot.lock` contains the surviving process id.
+- [ ] Verify the survivor's log shows `registered hotkey toggleOverlay`, `shorten`, and `showQR`; open Settings → Hotkeys and confirm no conflict warning.
+- [ ] Post `com.ernest.clipshot.show-overlay` via `DistributedNotificationCenter` (or press `⌘⇧V` when Accessibility is granted) → the survivor opens the timeline panel; it must not require a second instance.
+- [ ] Confirm the database uses WAL and a busy timeout: `sqlite3 ~/Library/Application\ Support/Clipshot/clipshot.sqlite "PRAGMA journal_mode; PRAGMA busy_timeout;"` → `wal` and `5000`.
+- [ ] If the app is launched from Xcode repeatedly, confirm old processes are not left behind (`pgrep -fl "Clipshot.app/Contents/MacOS/Clipshot"` shows one).
 
 ### Pinboards and snippets
 - [ ] Create a pinboard (`+` chip) with a name and color.
