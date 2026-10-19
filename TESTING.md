@@ -14,7 +14,7 @@ xcodebuild -scheme Clipshot test
 Latest verified result on this machine (Xcode 27.1, macOS 27.0.1):
 
 - `xcodebuild -scheme Clipshot build` → **BUILD SUCCEEDED**
-- `xcodebuild -scheme Clipshot test` → **TEST SUCCEEDED** — 111 tests, 0 failures
+- `xcodebuild -scheme Clipshot test` → **TEST SUCCEEDED** — 113 tests, 0 failures
   - `HistoryStoreTests` — 13
   - `PrivacyFilterTests` — 10
   - `BitlyBackendTests` — 17
@@ -28,6 +28,7 @@ Latest verified result on this machine (Xcode 27.1, macOS 27.0.1):
   - `AppIconProviderCacheTests` — 2
   - `CardAccentStyleTests` — 6
   - `SingleInstanceGuardTests` — 1
+  - `ResizeHandleTests` — 2
 
 Note: Xcode prints unrelated `CoreDevice` / `CoreSimulator` warnings on this machine ("CoreSimulator is out of date"). They concern iOS device support and do not affect macOS builds or tests.
 

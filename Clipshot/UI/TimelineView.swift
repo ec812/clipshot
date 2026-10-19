@@ -416,6 +416,7 @@ struct ResizeHandle: View {
     let onResize: (CGFloat) -> Void
     let onCommit: (CGFloat) -> Void
     @State private var startHeight: CGFloat?
+    @State private var startMouseY: CGFloat?
 
     var body: some View {
         Capsule()
@@ -425,18 +426,41 @@ struct ResizeHandle: View {
             .contentShape(Rectangle())
             .gesture(
                 DragGesture(minimumDistance: 1)
-                    .onChanged { value in
-                        let start = startHeight ?? currentHeight
+                    .onChanged { _ in
+                        // The handle itself moves upward as the panel grows.
+                        // Using the gesture's local translation then feeds the
+                        // window movement back into the drag (jitter/flicker),
+                        // so measure the pointer in stable screen coordinates.
+                        let mouseY = NSEvent.mouseLocation.y
                         if startHeight == nil {
-                            startHeight = start
+                            startHeight = currentHeight
+                            startMouseY = mouseY
+                            return
                         }
-                        onResize(start - value.translation.height)
+                        guard let startHeight, let startMouseY else { return }
+                        onResize(Self.height(
+                            startHeight: startHeight,
+                            startMouseY: startMouseY,
+                            currentMouseY: mouseY
+                        ))
                     }
-                    .onEnded { value in
+                    .onEnded { _ in
+                        let mouseY = NSEvent.mouseLocation.y
                         let start = startHeight ?? currentHeight
-                        onCommit(start - value.translation.height)
+                        let startY = startMouseY ?? mouseY
+                        onCommit(Self.height(
+                            startHeight: start,
+                            startMouseY: startY,
+                            currentMouseY: mouseY
+                        ))
                         startHeight = nil
+                        startMouseY = nil
                     }
             )
+    }
+
+    /// Quantized so sub-point mouse movement cannot trigger layout thrash.
+    static func height(startHeight: CGFloat, startMouseY: CGFloat, currentMouseY: CGFloat) -> CGFloat {
+        (startHeight + currentMouseY - startMouseY).rounded()
     }
 }

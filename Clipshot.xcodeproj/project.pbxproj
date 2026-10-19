@@ -56,6 +56,7 @@
 		D147DB041647AE5C643B5A66 /* HistoryStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D3E191664E1B394E5A96EF4 /* HistoryStoreTests.swift */; };
 		3A5319481F591FF6CF39A3EC /* OGImageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D8E247866CADD40A7D9D1AB /* OGImageTests.swift */; };
 		0894293CE0852D2DA89FA228 /* PrivacyFilterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F468A156DB4611DFED78E898 /* PrivacyFilterTests.swift */; };
+		2AE3142997A713A9F50FA265 /* ResizeHandleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1CCB7DDFB1D34B9250E885D4 /* ResizeHandleTests.swift */; };
 		653BA1AAB4727C379CD05DB2 /* ShortenRulesEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7FC774F68F71CD5CFE7FAEA7 /* ShortenRulesEngineTests.swift */; };
 		41F42F6E317397D68EE34E40 /* SingleInstanceGuardTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E70FE57C2DED784E40B9ACC /* SingleInstanceGuardTests.swift */; };
 		BDB99B509FA27BB0ABC68CEF /* GRDB in Frameworks */ = {isa = PBXBuildFile; productRef = 9BB0FF97824890950A5A5DA6 /* GRDB */; };
@@ -122,6 +123,7 @@
 		0D3E191664E1B394E5A96EF4 /* HistoryStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipshotTests/HistoryStoreTests.swift; sourceTree = "<group>"; };
 		0D8E247866CADD40A7D9D1AB /* OGImageTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipshotTests/OGImageTests.swift; sourceTree = "<group>"; };
 		F468A156DB4611DFED78E898 /* PrivacyFilterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipshotTests/PrivacyFilterTests.swift; sourceTree = "<group>"; };
+		1CCB7DDFB1D34B9250E885D4 /* ResizeHandleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipshotTests/ResizeHandleTests.swift; sourceTree = "<group>"; };
 		7FC774F68F71CD5CFE7FAEA7 /* ShortenRulesEngineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipshotTests/ShortenRulesEngineTests.swift; sourceTree = "<group>"; };
 		0E70FE57C2DED784E40B9ACC /* SingleInstanceGuardTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipshotTests/SingleInstanceGuardTests.swift; sourceTree = "<group>"; };
 		84337AD8D27FCD69AF2C4FC2 /* Clipshot.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Clipshot.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -216,6 +218,7 @@
 				0D3E191664E1B394E5A96EF4 /* HistoryStoreTests.swift */,
 				0D8E247866CADD40A7D9D1AB /* OGImageTests.swift */,
 				F468A156DB4611DFED78E898 /* PrivacyFilterTests.swift */,
+				1CCB7DDFB1D34B9250E885D4 /* ResizeHandleTests.swift */,
 				7FC774F68F71CD5CFE7FAEA7 /* ShortenRulesEngineTests.swift */,
 				0E70FE57C2DED784E40B9ACC /* SingleInstanceGuardTests.swift */,
 			);
@@ -394,6 +397,7 @@
 				D147DB041647AE5C643B5A66 /* HistoryStoreTests.swift in Sources */,
 				3A5319481F591FF6CF39A3EC /* OGImageTests.swift in Sources */,
 				0894293CE0852D2DA89FA228 /* PrivacyFilterTests.swift in Sources */,
+				2AE3142997A713A9F50FA265 /* ResizeHandleTests.swift in Sources */,
 				653BA1AAB4727C379CD05DB2 /* ShortenRulesEngineTests.swift in Sources */,
 				41F42F6E317397D68EE34E40 /* SingleInstanceGuardTests.swift in Sources */,
 			);
