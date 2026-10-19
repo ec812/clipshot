@@ -27,6 +27,8 @@ struct ItemCard: View {
     let onAddToStack: () -> Void
     let pinboards: [Pinboard]
 
+    private static let minimumWidth: CGFloat = 360
+
     var body: some View {
         VStack(alignment: .leading, spacing: 5) {
             header
@@ -38,7 +40,7 @@ struct ItemCard: View {
             }
         }
         .padding(9)
-        .frame(width: compact ? 138 : 204)
+        .frame(width: max(Self.minimumWidth, compact ? 138 : 204))
         .frame(maxHeight: .infinity)
         .background(cardBackground)
         .overlay(cardBorder)
