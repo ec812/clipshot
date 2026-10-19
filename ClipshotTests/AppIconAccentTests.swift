@@ -68,6 +68,38 @@ final class AppIconAccentTests: XCTestCase {
         XCTAssertGreaterThan(rgb.b, 0.85)
     }
 
+    func testSolidGreenIconProducesGreenAccent() {
+        let accent = AppIconAccent.dominantAccent(from: solidImage(red: 0.1, green: 0.85, blue: 0.2))
+        guard let accent else { return XCTFail("Expected an accent") }
+        let rgb = components(accent)
+        XCTAssertLessThan(rgb.r, 0.25)
+        XCTAssertGreaterThan(rgb.g, 0.8)
+        XCTAssertLessThan(rgb.b, 0.3)
+    }
+
+    func testHueIsPreservedAcrossPrimaryIcons() {
+        let cases: [(String, CGFloat, CGFloat, CGFloat, (CGFloat, CGFloat, CGFloat) -> Bool)] = [
+            ("red", 1, 0, 0, { $0 > $1 && $0 > $2 }),
+            ("green", 0, 1, 0, { $1 > $0 && $1 > $2 }),
+            ("blue", 0, 0, 1, { $2 > $0 && $2 > $1 })
+        ]
+
+        for (name, red, green, blue, isExpectedDominant) in cases {
+            let accent = AppIconAccent.dominantAccent(
+                from: solidImage(red: red, green: green, blue: blue)
+            )
+            guard let accent else {
+                XCTFail("Expected an accent for \(name)")
+                continue
+            }
+            let rgb = components(accent)
+            XCTAssertTrue(
+                isExpectedDominant(rgb.r, rgb.g, rgb.b),
+                "\(name) accent lost its dominant hue: R=\(rgb.r) G=\(rgb.g) B=\(rgb.b)"
+            )
+        }
+    }
+
     func testGrayIconHasNoAccent() {
         XCTAssertNil(AppIconAccent.dominantAccent(from: solidImage(red: 0.5, green: 0.5, blue: 0.5)))
         XCTAssertNil(AppIconAccent.dominantAccent(from: solidImage(red: 0.95, green: 0.95, blue: 0.95)))
@@ -101,5 +133,51 @@ final class AppIconAccentTests: XCTestCase {
         XCTAssertGreaterThan(rgb.r, 0.8)
         XCTAssertLessThan(rgb.g, 0.25)
         XCTAssertLessThan(rgb.b, 0.25)
+    }
+}
+
+@MainActor
+final class AppIconProviderCacheTests: XCTestCase {
+    private var directory: URL!
+    private let fileManager = FileManager.default
+
+    override func setUpWithError() throws {
+        try super.setUpWithError()
+        directory = fileManager.temporaryDirectory
+            .appendingPathComponent("ClipshotIconCacheTests-\(UUID().uuidString)", isDirectory: true)
+        try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
+    }
+
+    override func tearDownWithError() throws {
+        try? fileManager.removeItem(at: directory)
+        directory = nil
+        try super.tearDownWithError()
+    }
+
+    func testLegacyCacheIsClearedOnceAndMarkedV2() throws {
+        let legacyIcon = directory.appendingPathComponent("legacy.png")
+        let legacyAccent = directory.appendingPathComponent("legacy.accent")
+        try Data([0x01]).write(to: legacyIcon)
+        try Data([0x02]).write(to: legacyAccent)
+
+        _ = AppIconProvider(cacheDirectory: directory)
+
+        XCTAssertFalse(fileManager.fileExists(atPath: legacyIcon.path))
+        XCTAssertFalse(fileManager.fileExists(atPath: legacyAccent.path))
+        let marker = directory.appendingPathComponent("cache-version")
+        XCTAssertEqual(
+            try String(contentsOf: marker, encoding: .utf8).trimmingCharacters(in: .whitespacesAndNewlines),
+            "v2"
+        )
+    }
+
+    func testCurrentVersionCacheIsPreserved() throws {
+        _ = AppIconProvider(cacheDirectory: directory)
+
+        let sentinel = directory.appendingPathComponent("sentinel.txt")
+        try Data([0x03]).write(to: sentinel)
+
+        _ = AppIconProvider(cacheDirectory: directory)
+        XCTAssertTrue(fileManager.fileExists(atPath: sentinel.path))
     }
 }

@@ -14,7 +14,7 @@ xcodebuild -scheme Clipshot test
 Latest verified result on this machine (Xcode 27.1, macOS 27.0.1):
 
 - `xcodebuild -scheme Clipshot build` → **BUILD SUCCEEDED**
-- `xcodebuild -scheme Clipshot test` → **TEST SUCCEEDED** — 93 tests, 0 failures
+- `xcodebuild -scheme Clipshot test` → **TEST SUCCEEDED** — 97 tests, 0 failures
   - `HistoryStoreTests` — 12
   - `PrivacyFilterTests` — 10
   - `BitlyBackendTests` — 17
@@ -23,7 +23,8 @@ Latest verified result on this machine (Xcode 27.1, macOS 27.0.1):
   - `ClipboardColorParserTests` — 20
   - `OGImageParserTests` — 9
   - `OGImageCacheTests` — 6
-  - `AppIconAccentTests` — 6
+  - `AppIconAccentTests` — 8
+  - `AppIconProviderCacheTests` — 2
 
 Note: Xcode prints unrelated `CoreDevice` / `CoreSimulator` warnings on this machine ("CoreSimulator is out of date"). They concern iOS device support and do not affect macOS builds or tests.
 
@@ -125,10 +126,13 @@ Copy each value below, then open the timeline. Every one must render a large rou
 - [ ] Pause capture (menu bar), copy a new URL, open the timeline → no OG fetch occurs while paused; resume and reopen → the fetch starts.
 
 ### Source-app icon + accent
+> A timeline containing clips from only one app legitimately shows that app's accent on every card. For example, a Brave-only history is orange-red — this is not a generic red tint. Capture from at least two apps before judging per-app accents. `Docs/verify-accents.png` is a diagnostic overlay render showing Safari/Finder blue, Notes yellow, Xcode blue, and Brave orange-red in the same timeline.
+
 - [ ] Copy text from at least 4 apps with distinct icons (Safari, Notes, Terminal, Preview) → each card shows the source app icon and a subtly tinted border/background.
 - [ ] Safari cards lean blue, Notes cards lean yellow/orange, Terminal cards stay neutral (gray/black icons have no accent).
 - [ ] Copy a color value → its card border matches the copied color, on top of any app accent.
 - [ ] Quit and relaunch, open the timeline → icons and accents appear from cache without a visible delay.
+- [ ] Verify the cache version marker at `~/Library/Application Support/Clipshot/AppIcons/cache-version` reads `v2`; legacy `*.png`/`*.accent` entries from older builds are gone (one-time migration).
 - [ ] Hover/select cards → the accent remains visible at roughly 30% opacity in the unselected border.
 - [ ] Remove/uninstall an app whose clipboard item is still in history (or use an item with an unknown bundle id) → a generic app icon is shown instead of a blank.
 

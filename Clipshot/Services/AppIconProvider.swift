@@ -88,6 +88,9 @@ enum AppIconAccent {
 /// in memory and on disk.
 @MainActor
 final class AppIconProvider: ObservableObject {
+    private static let cacheVersion = "v2"
+    private static let cacheVersionFile = "cache-version"
+
     @Published private(set) var revision = 0
 
     private let cacheDirectory: URL
@@ -115,6 +118,7 @@ final class AppIconProvider: ObservableObject {
             at: self.cacheDirectory,
             withIntermediateDirectories: true
         )
+        Self.prepareCacheDirectory(self.cacheDirectory)
         self.genericIcon = NSImage(named: NSImage.applicationIconName)
             ?? NSImage(size: NSSize(width: 32, height: 32))
     }
@@ -139,8 +143,8 @@ final class AppIconProvider: ObservableObject {
         }
         inFlight.insert(bundleId)
 
-        let iconURL = Self.fileURL(bundleId: bundleId, suffix: "png", in: cacheDirectory)
-        let accentURL = Self.fileURL(bundleId: bundleId, suffix: "accent", in: cacheDirectory)
+        let iconURL = Self.fileURL(bundleId: bundleId, suffix: "v2.png", in: cacheDirectory)
+        let accentURL = Self.fileURL(bundleId: bundleId, suffix: "v2.accent", in: cacheDirectory)
 
         var icon: NSImage?
         var pngToWrite: Data?
@@ -192,6 +196,25 @@ final class AppIconProvider: ObservableObject {
     }
 
     // MARK: - Disk cache
+
+    /// Bumping the cache version discards icons/accents written by older builds
+    /// (for example, entries produced before accent extraction was corrected).
+    private static func prepareCacheDirectory(_ directory: URL) {
+        let marker = directory.appendingPathComponent(cacheVersionFile)
+        let stored = (try? String(contentsOf: marker, encoding: .utf8))?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard stored != cacheVersion else { return }
+
+        if let files = try? FileManager.default.contentsOfDirectory(
+            at: directory,
+            includingPropertiesForKeys: nil
+        ) {
+            for file in files {
+                try? FileManager.default.removeItem(at: file)
+            }
+        }
+        try? cacheVersion.write(to: marker, atomically: true, encoding: .utf8)
+    }
 
     private static func fileURL(bundleId: String, suffix: String, in directory: URL) -> URL {
         let digest = SHA256.hash(data: Data(bundleId.utf8))
