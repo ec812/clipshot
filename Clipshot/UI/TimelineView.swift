@@ -75,6 +75,8 @@ struct TimelineView: View {
     private var resizeHandle: some View {
         ResizeHandle(currentHeight: CGFloat(appState.settings.overlayHeight)) { newHeight in
             appState.overlayController.resize(to: newHeight)
+        } onCommit: { newHeight in
+            appState.overlayController.commitResize(to: newHeight)
         }
         .frame(height: 10)
         .padding(.top, 2)
@@ -412,6 +414,7 @@ struct TimelineView: View {
 struct ResizeHandle: View {
     let currentHeight: CGFloat
     let onResize: (CGFloat) -> Void
+    let onCommit: (CGFloat) -> Void
     @State private var startHeight: CGFloat?
 
     var body: some View {
@@ -429,7 +432,9 @@ struct ResizeHandle: View {
                         }
                         onResize(start - value.translation.height)
                     }
-                    .onEnded { _ in
+                    .onEnded { value in
+                        let start = startHeight ?? currentHeight
+                        onCommit(start - value.translation.height)
                         startHeight = nil
                     }
             )

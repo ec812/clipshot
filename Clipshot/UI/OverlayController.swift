@@ -63,10 +63,24 @@ final class OverlayController: NSObject, NSWindowDelegate {
         removeMonitors()
     }
 
+    /// Live resize while dragging. Deliberately does not touch settings: a
+    /// UserDefaults write + whole-app publish on every drag event causes
+    /// visible flicker (and needless activation-policy churn).
     func resize(to height: CGFloat) {
+        setHeight(height, persist: false)
+    }
+
+    /// Persist the final height once the drag ends.
+    func commitResize(to height: CGFloat) {
+        setHeight(height, persist: true)
+    }
+
+    private func setHeight(_ height: CGFloat, persist: Bool) {
         guard let appState, let panel else { return }
         let clamped = min(max(height, Self.minimumHeight), Self.maximumHeight)
-        appState.settings.overlayHeight = Double(clamped)
+        if persist {
+            appState.settings.overlayHeight = Double(clamped)
+        }
 
         let screen = panel.screen ?? screenWithPointer()
         let frame = frame(for: screen, height: clamped)

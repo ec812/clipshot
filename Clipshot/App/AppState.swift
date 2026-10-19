@@ -196,7 +196,9 @@ final class AppState: ObservableObject {
     }
 
     private func applyActivationPolicy() {
-        NSApp.setActivationPolicy(settings.showDockIcon ? .regular : .accessory)
+        let policy: NSApplication.ActivationPolicy = settings.showDockIcon ? .regular : .accessory
+        guard NSApp.activationPolicy() != policy else { return }
+        NSApp.setActivationPolicy(policy)
     }
 
     func presentOnboarding() {

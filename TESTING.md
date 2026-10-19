@@ -86,7 +86,7 @@ Complete every item on a real Mac (simulators do not exercise menu-bar, full-scr
 ### Overlay behavior
 - [ ] Enter full-screen video in Safari or QuickTime, press `⌘⇧V` over it → the bottom bar appears above the full-screen content without switching Spaces.
 - [ ] With two displays, put the pointer on the secondary display, press `⌘⇧V` → the bar opens on that display.
-- [ ] Drag the top handle → height changes; below the compact threshold cards switch to compact layout.
+- [ ] Drag the top handle up/down → the panel resizes smoothly with no flicker, height changes; below the compact threshold cards switch to compact layout. Height persists after releasing the drag.
 - [ ] Press `Esc` → overlay hides. Click outside → overlay hides.
 - [ ] Type in the search field → results narrow with FTS; clear the field → full history returns.
 - [ ] Use the type and source-app filter menus and the Pinned/pinboard chips.
