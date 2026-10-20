@@ -41,6 +41,8 @@
 		6DC1DD3ADA1CC7B15AC7FE4A /* ColorCardStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59F12D940117D59C8721724D /* ColorCardStyle.swift */; };
 		DAB81880EAF883AFCCCD71A9 /* ColorHex.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F8D1A5498FF0F78D9C6D6EC /* ColorHex.swift */; };
 		81F7DD45085BF43E3900BA1F /* ItemCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6904DA49733FB3B30CA59CD3 /* ItemCard.swift */; };
+		7A1B2C3D4E5F60718293A4B6 /* CardChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1B2C3D4E5F60718293A4B5 /* CardChrome.swift */; };
+		7A1B2C3D4E5F60718293A4B8 /* CardChromeStyleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1B2C3D4E5F60718293A4B7 /* CardChromeStyleTests.swift */; };
 		EBE642D5F92C9C0E8C8329A2 /* MenuBarContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = F94A36183F442C7102A5AF13 /* MenuBarContent.swift */; };
 		655BF82EAD6AB645245B3778 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2BFCCB0E8855C4244452407 /* OnboardingView.swift */; };
 		C5C94DB54B42714918AE2657 /* OverlayController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72D88C1661E99DEF51506A87 /* OverlayController.swift */; };
@@ -110,6 +112,7 @@
 		59F12D940117D59C8721724D /* ColorCardStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Clipshot/UI/ColorCardStyle.swift; sourceTree = "<group>"; };
 		2F8D1A5498FF0F78D9C6D6EC /* ColorHex.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Clipshot/UI/ColorHex.swift; sourceTree = "<group>"; };
 		6904DA49733FB3B30CA59CD3 /* ItemCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Clipshot/UI/ItemCard.swift; sourceTree = "<group>"; };
+		7A1B2C3D4E5F60718293A4B5 /* CardChrome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Clipshot/UI/CardChrome.swift; sourceTree = "<group>"; };
 		F94A36183F442C7102A5AF13 /* MenuBarContent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Clipshot/UI/MenuBarContent.swift; sourceTree = "<group>"; };
 		F2BFCCB0E8855C4244452407 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Clipshot/UI/OnboardingView.swift; sourceTree = "<group>"; };
 		72D88C1661E99DEF51506A87 /* OverlayController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Clipshot/UI/OverlayController.swift; sourceTree = "<group>"; };
@@ -121,6 +124,7 @@
 		183DAD0119070DA722A3C428 /* AppIconAccentTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipshotTests/AppIconAccentTests.swift; sourceTree = "<group>"; };
 		BF8CADCAF62CEABE04BF9314 /* BitlyBackendTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipshotTests/BitlyBackendTests.swift; sourceTree = "<group>"; };
 		1E5235066FF075673792E4D5 /* CardAccentStyleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipshotTests/CardAccentStyleTests.swift; sourceTree = "<group>"; };
+		7A1B2C3D4E5F60718293A4B7 /* CardChromeStyleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipshotTests/CardChromeStyleTests.swift; sourceTree = "<group>"; };
 		3B65E6CD4CB3D9570DAF44B3 /* ClipboardColorParserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipshotTests/ClipboardColorParserTests.swift; sourceTree = "<group>"; };
 		354C4CDF90C9468DB5D12E52 /* ClipboardPayloadReaderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipshotTests/ClipboardPayloadReaderTests.swift; sourceTree = "<group>"; };
 		CCBA4201A2613349594C2BD3 /* ColorCardStyleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipshotTests/ColorCardStyleTests.swift; sourceTree = "<group>"; };
@@ -200,6 +204,7 @@
 				59F12D940117D59C8721724D /* ColorCardStyle.swift */,
 				2F8D1A5498FF0F78D9C6D6EC /* ColorHex.swift */,
 				6904DA49733FB3B30CA59CD3 /* ItemCard.swift */,
+				7A1B2C3D4E5F60718293A4B5 /* CardChrome.swift */,
 				F94A36183F442C7102A5AF13 /* MenuBarContent.swift */,
 				F2BFCCB0E8855C4244452407 /* OnboardingView.swift */,
 				72D88C1661E99DEF51506A87 /* OverlayController.swift */,
@@ -218,6 +223,7 @@
 				183DAD0119070DA722A3C428 /* AppIconAccentTests.swift */,
 				BF8CADCAF62CEABE04BF9314 /* BitlyBackendTests.swift */,
 				1E5235066FF075673792E4D5 /* CardAccentStyleTests.swift */,
+				7A1B2C3D4E5F60718293A4B7 /* CardChromeStyleTests.swift */,
 				3B65E6CD4CB3D9570DAF44B3 /* ClipboardColorParserTests.swift */,
 				354C4CDF90C9468DB5D12E52 /* ClipboardPayloadReaderTests.swift */,
 				CCBA4201A2613349594C2BD3 /* ColorCardStyleTests.swift */,
@@ -381,6 +387,7 @@
 				6DC1DD3ADA1CC7B15AC7FE4A /* ColorCardStyle.swift in Sources */,
 				DAB81880EAF883AFCCCD71A9 /* ColorHex.swift in Sources */,
 				81F7DD45085BF43E3900BA1F /* ItemCard.swift in Sources */,
+				7A1B2C3D4E5F60718293A4B6 /* CardChrome.swift in Sources */,
 				EBE642D5F92C9C0E8C8329A2 /* MenuBarContent.swift in Sources */,
 				655BF82EAD6AB645245B3778 /* OnboardingView.swift in Sources */,
 				C5C94DB54B42714918AE2657 /* OverlayController.swift in Sources */,
@@ -399,6 +406,7 @@
 				10BC506F97B32BBBEEECDAAE /* AppIconAccentTests.swift in Sources */,
 				0AAC5192A5179E8704162B28 /* BitlyBackendTests.swift in Sources */,
 				AE33A5E256EA0CFB34C3CD36 /* CardAccentStyleTests.swift in Sources */,
+				7A1B2C3D4E5F60718293A4B8 /* CardChromeStyleTests.swift in Sources */,
 				DC2DF62FC7014B20747C1576 /* ClipboardColorParserTests.swift in Sources */,
 				BF17C307C98162EBE6B33F8E /* ClipboardPayloadReaderTests.swift in Sources */,
 				2E29EE34F88965E75640C228 /* ColorCardStyleTests.swift in Sources */,

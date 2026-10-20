@@ -21,7 +21,7 @@ final class OverlayController: NSObject, NSWindowDelegate {
     static let edgeInset: CGFloat = 12
     static let minimumHeight: CGFloat = 150
     static let maximumHeight: CGFloat = 560
-    static let compactThreshold: CGFloat = 210
+    static let compactThreshold: CGFloat = CardChromeStyle.fullOverlayMinimum
 
     init(appState: AppState) {
         self.appState = appState
@@ -34,7 +34,7 @@ final class OverlayController: NSObject, NSWindowDelegate {
     }
 
     private var currentHeight: CGFloat {
-        guard let appState else { return 260 }
+        guard let appState else { return 460 }
         return CGFloat(appState.settings.overlayHeight)
     }
 
