@@ -14,7 +14,7 @@ xcodebuild -scheme Clipshot test
 Latest verified result on this machine (Xcode 27.1, macOS 27.0.1):
 
 - `xcodebuild -scheme Clipshot build` → **BUILD SUCCEEDED**
-- `xcodebuild -scheme Clipshot test` → **TEST SUCCEEDED** — 122 tests, 0 failures
+- `xcodebuild -scheme Clipshot test` → **TEST SUCCEEDED** — 134 tests, 0 failures
   - `HistoryStoreTests` — 14
   - `PrivacyFilterTests` — 10
   - `BitlyBackendTests` — 17
@@ -22,8 +22,8 @@ Latest verified result on this machine (Xcode 27.1, macOS 27.0.1):
   - `PasteStackTests` — 3
   - `ClipboardColorParserTests` — 20
   - `ClipboardPayloadReaderTests` — 6
-  - `OGImageParserTests` — 9
-  - `OGImageCacheTests` — 6
+  - `OGImageParserTests` — 19
+  - `OGImageCacheTests` — 8
   - `AppIconAccentTests` — 8
   - `AppIconProviderCacheTests` — 2
   - `CardAccentStyleTests` — 6
@@ -45,8 +45,8 @@ Note: Xcode prints unrelated `CoreDevice` / `CoreSimulator` warnings on this mac
 | `ShortenRulesEngine` | URL/host globs, source app matching, priority order, disabled rules, slug tokens and sanitization, determinism |
 | `PasteStack` | FIFO order, count/active state, clear |
 | `ClipboardColorParser` | hex 3/4/6/8, rgb/rgba comma + space, percentages, alpha, hsl/hsla, oklch/okchl/oklab → sRGB round-trip, named subset, mixed-content and out-of-range rejection |
-| `OGImageParser` | `og:image`, `twitter:image` fallback, attribute order/case, relative URL resolution, entities, malformed markup, non-HTTP rejection |
-| `OGImageCache` | store/lookup, 7-day TTL, 24-hour negative cache, image↔negative replacement, LRU eviction under a byte cap, clear |
+| `OGImageParser` | `og:image` variants/`og:title`/`og:description`, `twitter:*` fallbacks (including an invalid OG image), `<title>` and `<meta name="description">` fallbacks, precedence, partial metadata, attribute order/case, relative URL resolution, entities, whitespace, malformed markup, non-HTTP rejection |
+| `OGImageCache` | full image + title/description record round-trip, metadata-only record, store/lookup, 7-day TTL, 24-hour negative cache, positive↔negative replacement, LRU eviction under a byte cap, clear |
 | `CardAccentStyle` | unselected border opacity ≥ 0.5 and wash ≥ 0.10, selected stronger than unselected, blue/yellow composited hue preserved over a dark card background |
 | `ColorCardStyle` | WCAG relative luminance → black/white foreground: white → black, black → white, #a51a15 → white, khaki/lightyellow → black, translucent blue composited over dark/light card backgrounds |
 
@@ -127,17 +127,23 @@ Copy each value below, then open the timeline. Each color item's entire content 
 - [ ] Press `⇧↩` on a color item → plain text of the original value is pasted.
 - [ ] Confirm the content fill (not just the card border/background) is entirely the parsed color, and the source-app icon remains visible.
 
-### Link previews (OG images)
-- [ ] Copy a real article URL whose page has `<meta property="og:image">` (e.g. a news/ blog post) → while loading the card shows the placeholder, then the image (aspect-fill, rounded).
-- [ ] Copy a URL that only has `twitter:image` → the image still appears.
-- [ ] Copy a URL with no OG/Twitter image → the placeholder stays; no crash.
-- [ ] Copy the same URL twice → only one fetch is made (inspect the cache directory / network).
-- [ ] Quit and relaunch Clipshot, copy the same URL → the image appears from disk cache without a network fetch.
-- [ ] Settings → General → turn **Fetch link previews (OG images)** off → new URL cards show placeholders and no network requests are made; turn it back on → previews load.
-- [ ] Offline behavior: disconnect the network, copy a URL not yet cached → placeholder remains, the UI stays responsive, and no fetch spins forever.
-- [ ] Reconnect and copy that same URL within 24 hours → negative cache still shows the placeholder (by design). Press **Clear preview cache**, then copy again → it loads.
-- [ ] Settings → General → **Clear preview cache** → cached thumbnails disappear and refetch when cards next appear.
+### Link previews (OG image + title + description)
+- [ ] Copy a real article URL whose page has `og:image`, `og:title` and `og:description` (e.g. https://www.apple.com/newsroom/2024/06/introducing-apple-intelligence-for-iphone-ipad-and-mac/) → the card shows the image, a bold one-line title, and a secondary two-line description. Reference capture: `Docs/verify-og-full.png`.
+- [ ] Copy a URL that only has `twitter:image` / `twitter:title` / `twitter:description` → those values appear.
+- [ ] Copy a URL with only `<title>` and `<meta name="description">` → the plain-head values appear.
+- [ ] Copy a URL with only a title (no image/description) → the title and image placeholder appear; missing fields are simply omitted.
+- [ ] Copy a URL with no OG/Twitter/head metadata → the URL text is shown; no crash.
+- [ ] Copy the same URL twice → only one page and one image fetch are made (inspect the cache directory / network).
+- [ ] Quit and relaunch Clipshot, copy the same URL → image, title and description appear from disk cache without a network fetch.
+- [ ] Settings → General → turn **Fetch link previews (OG images)** off → new URL cards show the fallback URL and no network requests are made; turn it back on → previews load.
+- [ ] Offline behavior: disconnect the network, copy a URL not yet cached → fallback remains, the UI stays responsive, and no fetch spins forever.
+- [ ] Reconnect and copy that same URL within 24 hours → negative cache still shows the fallback (by design). Press **Clear preview cache**, then copy again → it loads.
+- [ ] Settings → General → **Clear preview cache** → cached previews disappear and refetch when cards next appear.
 - [ ] Pause capture (menu bar), copy a new URL, open the timeline → no OG fetch occurs while paused; resume and reopen → the fetch starts.
+
+### Capture latency
+- [ ] With the timeline open, copy a short unique string → the new card appears immediately (no manual refresh).
+- [ ] Measured on this machine with a simulated pasteboard write: p50 **≈79 ms** from write to the item being published in the visible list (samples 36.5, 41.8, 76.8, 80.9, 141.0, 151.6 ms). Clipboard polling is 0.1 s with a 0.01 s tolerance; idle CPU measured 0.0–0.3%.
 
 ### Source-app icon + accent
 > A timeline containing clips from only one app legitimately shows that app's accent on every card. For example, a Brave-only history is orange-red — this is not a generic red tint. Capture from at least two apps before judging per-app accents. `Docs/verify-accents-v2.png` is a diagnostic overlay render showing Safari/Finder blue borders and washes, Notes yellow, Xcode blue, Brave orange-red, and Terminal neutral, captured only after every accent had resolved.

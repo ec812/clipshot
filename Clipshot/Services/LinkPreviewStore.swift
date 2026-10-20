@@ -2,14 +2,24 @@ import AppKit
 import Combine
 import Foundation
 
-/// App-wide Open Graph preview state. Keeps decoded images in memory and
-/// dedupes in-flight fetches; the heavy lifting happens off the main actor.
+struct LinkPreview {
+    let image: NSImage?
+    let title: String?
+    let description: String?
+
+    var hasMetadata: Bool {
+        title != nil || description != nil
+    }
+}
+
+/// App-wide Open Graph preview state. Keeps decoded images and metadata in
+/// memory and dedupes in-flight fetches; network work happens off-main.
 @MainActor
 final class LinkPreviewStore: ObservableObject {
     @Published private(set) var revision = 0
 
     private let loader: OGImageLoader
-    private var memory: [URL: NSImage] = [:]
+    private var previews: [URL: LinkPreview] = [:]
     private var failed: Set<URL> = []
     private var inFlight: Set<URL> = []
     private var tasks: [URL: Task<Void, Never>] = [:]
@@ -20,25 +30,34 @@ final class LinkPreviewStore: ObservableObject {
         self.loader = loader
     }
 
+    func preview(for url: URL) -> LinkPreview? {
+        previews[url]
+    }
+
     func cachedImage(for url: URL) -> NSImage? {
-        memory[url]
+        previews[url]?.image
     }
 
     func request(for url: URL, enabled: Bool) {
         guard enabled, !isPaused else { return }
-        guard memory[url] == nil, !failed.contains(url), !inFlight.contains(url) else { return }
+        guard previews[url] == nil, !failed.contains(url), !inFlight.contains(url) else { return }
         guard let scheme = url.scheme?.lowercased(), scheme == "http" || scheme == "https" else { return }
 
         inFlight.insert(url)
         let loader = self.loader
         let task = Task.detached(priority: .utility) { [self] in
-            let data = await loader.imageData(for: url)
+            let page = await loader.preview(for: url)
             if Task.isCancelled { return }
             await MainActor.run {
                 self.inFlight.remove(url)
                 self.tasks.removeValue(forKey: url)
-                if let data, let image = NSImage(data: data) {
-                    self.memory[url] = image
+                if let page {
+                    let image = page.imageData.flatMap { NSImage(data: $0) }
+                    self.previews[url] = LinkPreview(
+                        image: image,
+                        title: page.metadata.title,
+                        description: page.metadata.description
+                    )
                 } else {
                     self.failed.insert(url)
                 }
@@ -67,7 +86,7 @@ final class LinkPreviewStore: ObservableObject {
         }
         tasks.removeAll()
         inFlight.removeAll()
-        memory.removeAll()
+        previews.removeAll()
         failed.removeAll()
         revision &+= 1
 

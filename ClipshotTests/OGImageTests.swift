@@ -108,6 +108,121 @@ final class OGImageParserTests: XCTestCase {
             baseURL: baseURL
         ))
     }
+
+    // MARK: - Full metadata
+
+    func testOpenGraphMetadata() {
+        let html = """
+        <html><head>
+        <meta property="og:title" content="The Title">
+        <meta property="og:description" content="The description.">
+        <meta property="og:image" content="https://cdn.example.com/og.png">
+        <meta property="og:site_name" content="Ignored Site">
+        </head></html>
+        """
+        let metadata = OGImageParser.metadata(fromHTML: html, baseURL: baseURL)
+        XCTAssertEqual(metadata.title, "The Title")
+        XCTAssertEqual(metadata.description, "The description.")
+        XCTAssertEqual(metadata.imageURL?.absoluteString, "https://cdn.example.com/og.png")
+    }
+
+    func testTwitterMetadataFallbacks() {
+        let html = """
+        <meta name="twitter:title" content="Twitter Title">
+        <meta name="twitter:description" content="Twitter description">
+        <meta name="twitter:image" content="https://cdn.example.com/twitter.jpg">
+        """
+        let metadata = OGImageParser.metadata(fromHTML: html, baseURL: baseURL)
+        XCTAssertEqual(metadata.title, "Twitter Title")
+        XCTAssertEqual(metadata.description, "Twitter description")
+        XCTAssertEqual(metadata.imageURL?.absoluteString, "https://cdn.example.com/twitter.jpg")
+    }
+
+    func testOpenGraphMetadataWinsOverTwitter() {
+        let html = """
+        <meta property="og:title" content="OG Title">
+        <meta name="twitter:title" content="Twitter Title">
+        <meta property="og:description" content="OG Description">
+        <meta name="twitter:description" content="Twitter Description">
+        <meta property="og:image" content="https://cdn.example.com/og.png">
+        <meta name="twitter:image" content="https://cdn.example.com/twitter.jpg">
+        """
+        let metadata = OGImageParser.metadata(fromHTML: html, baseURL: baseURL)
+        XCTAssertEqual(metadata.title, "OG Title")
+        XCTAssertEqual(metadata.description, "OG Description")
+        XCTAssertEqual(metadata.imageURL?.absoluteString, "https://cdn.example.com/og.png")
+    }
+
+    func testTitleTagAndMetaDescriptionFallbacks() {
+        let html = """
+        <html><head>
+        <title>
+            Plain &amp; Head Title
+        </title>
+        <meta name="description" content="Plain meta description">
+        </head></html>
+        """
+        let metadata = OGImageParser.metadata(fromHTML: html, baseURL: baseURL)
+        XCTAssertEqual(metadata.title, "Plain & Head Title")
+        XCTAssertEqual(metadata.description, "Plain meta description")
+        XCTAssertNil(metadata.imageURL)
+    }
+
+    func testPartialMetadata() {
+        let metadata = OGImageParser.metadata(
+            fromHTML: "<meta property='og:title' content='Only a title'>",
+            baseURL: baseURL
+        )
+        XCTAssertEqual(metadata.title, "Only a title")
+        XCTAssertNil(metadata.description)
+        XCTAssertNil(metadata.imageURL)
+    }
+
+    func testMissingMetadata() {
+        let metadata = OGImageParser.metadata(
+            fromHTML: "<html><body>No metadata here</body></html>",
+            baseURL: baseURL
+        )
+        XCTAssertTrue(metadata.isEmpty)
+    }
+
+    func testMetadataDescriptionWhitespaceAndEntities() {
+        let html = """
+        <meta property="og:description" content="Line one
+        &amp; line two &quot;quoted&quot;">
+        """
+        let metadata = OGImageParser.metadata(fromHTML: html, baseURL: baseURL)
+        XCTAssertEqual(metadata.description, "Line one & line two \"quoted\"")
+    }
+
+    func testMetadataResolvesRelativeImageAgainstBase() {
+        let html = "<meta property='og:image' content='/assets/og.png'>"
+        let metadata = OGImageParser.metadata(fromHTML: html, baseURL: baseURL)
+        XCTAssertEqual(metadata.imageURL?.absoluteString, "https://example.com/assets/og.png")
+    }
+
+    func testOpenGraphImageURLVariants() {
+        let secure = "<meta property='og:image:secure_url' content='https://cdn.example.com/secure.png'>"
+        XCTAssertEqual(
+            OGImageParser.metadata(fromHTML: secure, baseURL: baseURL).imageURL?.absoluteString,
+            "https://cdn.example.com/secure.png"
+        )
+
+        let urlVariant = "<meta property='og:image:url' content='https://cdn.example.com/url.png'>"
+        XCTAssertEqual(
+            OGImageParser.metadata(fromHTML: urlVariant, baseURL: baseURL).imageURL?.absoluteString,
+            "https://cdn.example.com/url.png"
+        )
+    }
+
+    func testInvalidOpenGraphImageFallsBackToTwitter() {
+        let html = """
+        <meta property="og:image" content="data:image/png;base64,AAAA">
+        <meta name="twitter:image" content="https://cdn.example.com/twitter.jpg">
+        """
+        let metadata = OGImageParser.metadata(fromHTML: html, baseURL: baseURL)
+        XCTAssertEqual(metadata.imageURL?.absoluteString, "https://cdn.example.com/twitter.jpg")
+    }
 }
 
 final class OGImageCacheTests: XCTestCase {
@@ -153,6 +268,16 @@ final class OGImageCacheTests: XCTestCase {
         URL(string: "https://example.com/\(path)")!
     }
 
+    private func imageData(from result: OGImageCacheResult) -> Data? {
+        guard case .preview(let preview) = result else { return nil }
+        return preview.imageData
+    }
+
+    private func cachedMetadata(from result: OGImageCacheResult) -> OGMetadata? {
+        guard case .preview(let preview) = result else { return nil }
+        return preview.metadata
+    }
+
     func testStoreAndLookupImage() {
         let cache = makeCache()
         let page = url("article")
@@ -160,9 +285,39 @@ final class OGImageCacheTests: XCTestCase {
 
         cache.storeImage(data, for: page)
 
-        XCTAssertEqual(cache.lookup(url: page), .image(data))
+        XCTAssertEqual(imageData(from: cache.lookup(url: page)), data)
         XCTAssertTrue(fileManager.fileExists(atPath: cache.imageFileURL(for: page).path))
+        XCTAssertTrue(fileManager.fileExists(atPath: cache.metadataFileURL(for: page).path))
         XCTAssertFalse(fileManager.fileExists(atPath: cache.negativeFileURL(for: page).path))
+    }
+
+    func testStoreAndLookupFullMetadataRecord() {
+        let cache = makeCache()
+        let page = url("metadata")
+        let metadata = OGMetadata(
+            title: "A title",
+            description: "A description",
+            imageURL: URL(string: "https://cdn.example.com/og.png")
+        )
+        let image = Data(repeating: 0x42, count: 64)
+
+        cache.storePreview(OGPagePreview(imageData: image, metadata: metadata), for: page)
+
+        let result = cache.lookup(url: page)
+        XCTAssertEqual(imageData(from: result), image)
+        XCTAssertEqual(cachedMetadata(from: result), metadata)
+    }
+
+    func testMetadataOnlyRecordRoundTrip() {
+        let cache = makeCache()
+        let page = url("metadata-only")
+        let metadata = OGMetadata(title: "Title only", description: nil, imageURL: nil)
+
+        cache.storePreview(OGPagePreview(imageData: nil, metadata: metadata), for: page)
+
+        let result = cache.lookup(url: page)
+        XCTAssertEqual(cachedMetadata(from: result), metadata)
+        XCTAssertNil(imageData(from: result))
     }
 
     func testPositiveTTLExpiry() {
@@ -173,6 +328,7 @@ final class OGImageCacheTests: XCTestCase {
         clock.advance(3601)
         XCTAssertEqual(cache.lookup(url: page), .miss)
         XCTAssertFalse(fileManager.fileExists(atPath: cache.imageFileURL(for: page).path))
+        XCTAssertFalse(fileManager.fileExists(atPath: cache.metadataFileURL(for: page).path))
     }
 
     func testNegativeCacheAndExpiry() {
@@ -194,8 +350,9 @@ final class OGImageCacheTests: XCTestCase {
         cache.storeFailure(for: page)
         XCTAssertEqual(cache.lookup(url: page), .negative)
 
-        cache.storeImage(Data(repeating: 1, count: 8), for: page)
-        XCTAssertEqual(cache.lookup(url: page), .image(Data(repeating: 1, count: 8)))
+        let data = Data(repeating: 1, count: 8)
+        cache.storeImage(data, for: page)
+        XCTAssertEqual(imageData(from: cache.lookup(url: page)), data)
 
         cache.storeFailure(for: page)
         XCTAssertEqual(cache.lookup(url: page), .negative)
@@ -211,13 +368,19 @@ final class OGImageCacheTests: XCTestCase {
         cache.storeImage(Data(repeating: 2, count: 60), for: second)
 
         XCTAssertEqual(cache.lookup(url: first), .miss)
-        XCTAssertEqual(cache.lookup(url: second), .image(Data(repeating: 2, count: 60)))
+        XCTAssertEqual(imageData(from: cache.lookup(url: second)), Data(repeating: 2, count: 60))
     }
 
     func testClearRemovesEverything() {
         let cache = makeCache()
         let page = url("clear")
-        cache.storeImage(Data(repeating: 3, count: 16), for: page)
+        cache.storePreview(
+            OGPagePreview(
+                imageData: Data(repeating: 3, count: 16),
+                metadata: OGMetadata(title: "Clear", description: "Me", imageURL: nil)
+            ),
+            for: page
+        )
         XCTAssertGreaterThan(cache.currentSize(), 0)
 
         cache.clear()

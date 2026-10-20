@@ -3,6 +3,11 @@ import Combine
 import CryptoKit
 import Foundation
 
+private enum AppIconCacheVersion {
+    static let value = "v2"
+    static let markerFile = "cache-version"
+}
+
 /// Extracts a stable accent color from an app icon.
 enum AppIconAccent {
     /// Returns nil for empty/transparent or effectively grayscale/white/black icons.
@@ -88,9 +93,6 @@ enum AppIconAccent {
 /// in memory and on disk.
 @MainActor
 final class AppIconProvider: ObservableObject {
-    private static let cacheVersion = "v2"
-    private static let cacheVersionFile = "cache-version"
-
     @Published private(set) var revision = 0
 
     private let cacheDirectory: URL
@@ -142,8 +144,16 @@ final class AppIconProvider: ObservableObject {
         }
         inFlight.insert(bundleId)
 
-        let iconURL = Self.fileURL(bundleId: bundleId, suffix: "v2.png", in: cacheDirectory)
-        let accentURL = Self.fileURL(bundleId: bundleId, suffix: "v2.accent", in: cacheDirectory)
+        let iconURL = Self.fileURL(
+            bundleId: bundleId,
+            suffix: "\(AppIconCacheVersion.value).png",
+            in: cacheDirectory
+        )
+        let accentURL = Self.fileURL(
+            bundleId: bundleId,
+            suffix: "\(AppIconCacheVersion.value).accent",
+            in: cacheDirectory
+        )
 
         Task.detached(priority: .utility) { [self] in
             try? FileManager.default.createDirectory(
@@ -176,15 +186,18 @@ final class AppIconProvider: ObservableObject {
                 }
             }
 
+            let resolvedIcon = icon
+            let resolvedAccent = accent
+
             await MainActor.run {
                 self.inFlight.remove(bundleId)
-                if let icon {
-                    self.icons[bundleId] = icon
+                if let resolvedIcon {
+                    self.icons[bundleId] = resolvedIcon
                 } else {
                     self.missing.insert(bundleId)
                 }
-                if let accent {
-                    self.accents[bundleId] = accent
+                if let resolvedAccent {
+                    self.accents[bundleId] = resolvedAccent
                 }
                 self.revision &+= 1
             }
@@ -201,10 +214,10 @@ final class AppIconProvider: ObservableObject {
             at: directory,
             withIntermediateDirectories: true
         )
-        let marker = directory.appendingPathComponent(cacheVersionFile)
+        let marker = directory.appendingPathComponent(AppIconCacheVersion.markerFile)
         let stored = (try? String(contentsOf: marker, encoding: .utf8))?
             .trimmingCharacters(in: .whitespacesAndNewlines)
-        guard stored != cacheVersion else { return }
+        guard stored != AppIconCacheVersion.value else { return }
 
         if let files = try? FileManager.default.contentsOfDirectory(
             at: directory,
@@ -212,11 +225,13 @@ final class AppIconProvider: ObservableObject {
         ) {
             for file in files {
                 let name = file.lastPathComponent
-                guard name != cacheVersionFile, !name.contains(".v2.") else { continue }
+                guard name != AppIconCacheVersion.markerFile,
+                      !name.contains(".\(AppIconCacheVersion.value).")
+                else { continue }
                 try? FileManager.default.removeItem(at: file)
             }
         }
-        try? cacheVersion.write(to: marker, atomically: true, encoding: .utf8)
+        try? AppIconCacheVersion.value.write(to: marker, atomically: true, encoding: .utf8)
     }
 
     nonisolated private static func fileURL(bundleId: String, suffix: String, in directory: URL) -> URL {

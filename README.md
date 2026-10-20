@@ -17,12 +17,12 @@ A native macOS menu-bar clipboard manager with link shortening built in — a Cl
 ## Features
 
 **Clipboard history**
-- 0.3 s `NSPasteboard.changeCount` polling with SHA-256 dedupe, own-write suppression, pause support
+- 0.1 s `NSPasteboard.changeCount` polling with SHA-256 dedupe, own-write suppression, pause support
 - Captures text, links, rich text, images (PNG on disk), files and colors
 - Bottom-bar `NSPanel` timeline on the display under the pointer, over full-screen apps, resizable, compact mode
 - Full-text search (FTS5) and filters by type, source app, pinned and pinboard
 - Keyboard-first: `←/→`, `↩`, `⇧↩`, `⌘1–9`, `⌘N/E/R/P/K`, `⌘Y` Quick Look, `⌘⌫` delete
-- Rich previews: full-content color fills with readable value overlays (hex/rgb/hsl/oklch/oklab/named), Open Graph thumbnails for links, source-app icons and per-app accent-tinted cards
+- Rich previews: full-content color fills with readable value overlays (hex/rgb/hsl/oklch/oklab/named), Open Graph images with title and description for links, source-app icons and per-app accent-tinted cards
 - Plain-text paste, paste stack, Quick Look, pinboards, snippets, edit/rename, retention
 - Privacy: bundle-id ignore list (password managers by default), transient/concealed pasteboard markers, timed pause (also suspends OG fetches)
 
@@ -81,10 +81,10 @@ Clipshot/
 │   ├── PasteEngine.swift        pasteboard writes, CGEvent ⌘V, paste stack
 │   ├── ItemDataStore.swift      image/RTF payload files
 │   ├── AppIconProvider.swift    source-app icons + accent extraction
-│   ├── OGImageParser.swift      og:image / twitter:image extraction
-│   ├── OGImageCache.swift       disk TTL, negative cache, LRU cap
-│   ├── OGImageLoader.swift      async page + image fetching
-│   ├── LinkPreviewStore.swift   in-flight dedupe + preview state
+│   ├── OGImageParser.swift      og/twitter/head image, title, description extraction
+│   ├── OGImageCache.swift       disk TTL, metadata + image records, negative cache, LRU cap
+│   ├── OGImageLoader.swift      async page + image fetching (one page fetch for all metadata)
+│   ├── LinkPreviewStore.swift   in-flight dedupe + image/title/description state
 │   ├── ShortenerBackend.swift   protocol, capabilities, registry
 │   ├── BitlyClient.swift        Bitly v4 REST client and DTO mapping
 │   ├── BitlyBackend.swift       Bitly provider implementation
@@ -98,7 +98,7 @@ Clipshot/
 └── UI/                          overlay panel, timeline, cards, settings, onboarding
 ```
 
-Tests live in `ClipshotTests/` (HistoryStore, PrivacyFilter, BitlyBackend via URLProtocol, ShortenRulesEngine, PasteStack, ClipboardColorParser, OGImageParser/OGImageCache, AppIconAccent). Manual verification is documented in [TESTING.md](TESTING.md).
+Tests live in `ClipshotTests/` (HistoryStore, PrivacyFilter, BitlyBackend via URLProtocol, ShortenRulesEngine, PasteStack, ClipboardColorParser, OGImageParser full metadata/OGImageCache records, AppIconAccent). Manual verification is documented in [TESTING.md](TESTING.md).
 
 ## Local data
 

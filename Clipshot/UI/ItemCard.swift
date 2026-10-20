@@ -174,18 +174,14 @@ struct ItemCard: View {
                 fallbackPreview
             }
         case .url:
-            VStack(alignment: .leading, spacing: 5) {
-                LinkPreviewThumbnail(
-                    previews: linkPreviews,
-                    url: item.url,
-                    enabled: fetchLinkPreviews,
-                    isPaused: isPaused
-                )
-                Text(item.previewText)
-                    .font(.system(size: compact ? 9.5 : 10.5))
-                    .lineLimit(compact ? 1 : 2)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
+            URLPreviewView(
+                previews: linkPreviews,
+                url: item.url,
+                enabled: fetchLinkPreviews,
+                isPaused: isPaused,
+                compact: compact,
+                fallbackText: item.previewText
+            )
         case .image:
             if let image = clipImages.image(forPath: item.dataPath) {
                 Image(nsImage: image)
@@ -334,9 +330,9 @@ struct ItemCard: View {
     }
 }
 
-/// Async OG-image thumbnail with a placeholder while loading, on failure, or
-/// when previews are disabled/paused.
-private struct LinkPreviewThumbnail: View {
+/// OG image + title + description for URL cards. Partial metadata is shown as
+/// available; when nothing is cached/fetched, the URL itself is the fallback.
+private struct URLPreviewView: View {
     /// Standard Open Graph image ratio (1200×630).
     static let aspectRatio: CGFloat = 120.0 / 63.0
 
@@ -344,10 +340,51 @@ private struct LinkPreviewThumbnail: View {
     let url: URL?
     let enabled: Bool
     let isPaused: Bool
+    let compact: Bool
+    let fallbackText: String
 
-    @State private var image: NSImage?
+    private var preview: LinkPreview? {
+        guard let url else { return nil }
+        return previews.preview(for: url)
+    }
 
     var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            thumbnail
+
+            if let title = preview?.title {
+                Text(title)
+                    .font(.system(size: compact ? 10 : 11, weight: .semibold))
+                    .lineLimit(1)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
+            if let description = preview?.description {
+                Text(description)
+                    .font(.system(size: compact ? 9 : 10))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
+            if preview?.title == nil, preview?.description == nil {
+                Text(fallbackText)
+                    .font(.system(size: compact ? 9.5 : 10.5))
+                    .lineLimit(compact ? 1 : 2)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .onAppear(perform: refresh)
+        .onChange(of: isPaused) { _, paused in
+            if !paused { refresh() }
+        }
+        .onChange(of: enabled) { _, isEnabled in
+            if isEnabled { refresh() }
+        }
+    }
+
+    private var thumbnail: some View {
         Color.clear
             .aspectRatio(Self.aspectRatio, contentMode: .fit)
             .overlay {
@@ -355,7 +392,7 @@ private struct LinkPreviewThumbnail: View {
                     RoundedRectangle(cornerRadius: 7, style: .continuous)
                         .fill(Color.primary.opacity(0.06))
 
-                    if let image {
+                    if let image = preview?.image {
                         Image(nsImage: image)
                             .resizable()
                             .scaledToFill()
@@ -371,23 +408,10 @@ private struct LinkPreviewThumbnail: View {
                 RoundedRectangle(cornerRadius: 7, style: .continuous)
                     .strokeBorder(Color.primary.opacity(0.07), lineWidth: 1)
             )
-            .onAppear(perform: refresh)
-            .onChange(of: previews.revision) { _, _ in
-                image = url.flatMap { previews.cachedImage(for: $0) }
-            }
-            .onChange(of: isPaused) { _, paused in
-                if !paused { refresh() }
-            }
-            .onChange(of: enabled) { _, isEnabled in
-                if isEnabled { refresh() }
-            }
     }
 
     private func refresh() {
         guard let url else { return }
-        image = previews.cachedImage(for: url)
-        if image == nil {
-            previews.request(for: url, enabled: enabled)
-        }
+        previews.request(for: url, enabled: enabled)
     }
 }

@@ -1,17 +1,41 @@
 import Foundation
 
-/// Extracts an Open Graph or Twitter image URL from HTML without a full parser.
-/// Regex-based on purpose: it tolerates malformed markup and works on partial pages.
+struct OGMetadata: Codable, Equatable, Sendable {
+    var title: String?
+    var description: String?
+    var imageURL: URL?
+
+    var isEmpty: Bool {
+        title == nil && description == nil && imageURL == nil
+    }
+}
+
+struct OGPagePreview: Equatable, Sendable {
+    var imageData: Data?
+    var metadata: OGMetadata
+
+    var isEmpty: Bool {
+        imageData == nil && metadata.title == nil && metadata.description == nil
+    }
+}
+
+/// Extracts Open Graph / Twitter / plain-head metadata from HTML without a
+/// full parser. Regex-based on purpose: it tolerates malformed markup.
 enum OGImageParser {
-    static func imageURL(fromHTML html: String, baseURL: URL) -> URL? {
+    static func metadata(fromHTML html: String, baseURL: URL) -> OGMetadata {
         let nsHTML = html as NSString
         let matches = metaRegex.matches(
             in: html,
             range: NSRange(location: 0, length: nsHTML.length)
         )
 
-        var openGraph: String?
-        var twitter: String?
+        var ogImage: String?
+        var twitterImage: String?
+        var ogTitle: String?
+        var twitterTitle: String?
+        var ogDescription: String?
+        var twitterDescription: String?
+        var metaDescription: String?
 
         for match in matches {
             let tag = nsHTML.substring(with: match.range)
@@ -23,20 +47,39 @@ enum OGImageParser {
             let key = (attributes["property"] ?? attributes["name"])?.lowercased()
             switch key {
             case "og:image", "og:image:url", "og:image:secure_url":
-                if openGraph == nil { openGraph = content }
+                if ogImage == nil { ogImage = content }
             case "twitter:image", "twitter:image:src":
-                if twitter == nil { twitter = content }
+                if twitterImage == nil { twitterImage = content }
+            case "og:title":
+                if ogTitle == nil { ogTitle = content }
+            case "twitter:title":
+                if twitterTitle == nil { twitterTitle = content }
+            case "og:description":
+                if ogDescription == nil { ogDescription = content }
+            case "twitter:description":
+                if twitterDescription == nil { twitterDescription = content }
+            case "description":
+                if metaDescription == nil { metaDescription = content }
             default:
                 break
             }
         }
 
-        for candidate in [openGraph, twitter].compactMap({ $0 }) {
-            if let url = resolve(candidate, baseURL: baseURL) {
-                return url
-            }
-        }
-        return nil
+        return OGMetadata(
+            title: normalizedText(ogTitle)
+                ?? normalizedText(twitterTitle)
+                ?? titleTag(in: html),
+            description: normalizedText(ogDescription)
+                ?? normalizedText(twitterDescription)
+                ?? normalizedText(metaDescription),
+            imageURL: resolve(ogImage, baseURL: baseURL)
+                ?? resolve(twitterImage, baseURL: baseURL)
+        )
+    }
+
+    /// Backwards-compatible image-only entry point.
+    static func imageURL(fromHTML html: String, baseURL: URL) -> URL? {
+        metadata(fromHTML: html, baseURL: baseURL).imageURL
     }
 
     // MARK: - Parsing helpers
@@ -48,12 +91,29 @@ enum OGImageParser {
         )
     }()
 
+    private static let titleRegex: NSRegularExpression = {
+        try! NSRegularExpression(
+            pattern: #"<title\b[^>]*>(.*?)</title>"#,
+            options: [.caseInsensitive, .dotMatchesLineSeparators]
+        )
+    }()
+
     private static let attributeRegex: NSRegularExpression = {
         try! NSRegularExpression(
             pattern: #"([A-Za-z_:][A-Za-z0-9_:.\-]*)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>"']+))"#,
             options: [.caseInsensitive]
         )
     }()
+
+    static func titleTag(in html: String) -> String? {
+        let nsHTML = html as NSString
+        guard let match = titleRegex.firstMatch(
+            in: html,
+            range: NSRange(location: 0, length: nsHTML.length)
+        ), let range = Range(match.range(at: 1), in: html)
+        else { return nil }
+        return normalizedText(String(html[range]))
+    }
 
     static func parseAttributes(_ tag: String) -> [String: String] {
         let nsTag = tag as NSString
@@ -80,7 +140,8 @@ enum OGImageParser {
         return result
     }
 
-    static func resolve(_ candidate: String, baseURL: URL) -> URL? {
+    static func resolve(_ candidate: String?, baseURL: URL) -> URL? {
+        guard let candidate else { return nil }
         let decoded = decodeHTMLEntities(candidate)
             .trimmingCharacters(in: .whitespacesAndNewlines)
         guard !decoded.isEmpty else { return nil }
@@ -90,6 +151,18 @@ enum OGImageParser {
               url.host != nil
         else { return nil }
         return url
+    }
+
+    static func normalizedText(_ value: String?) -> String? {
+        guard let value else { return nil }
+        let decoded = decodeHTMLEntities(value)
+        let collapsed = decoded.replacingOccurrences(
+            of: #"\s+"#,
+            with: " ",
+            options: .regularExpression
+        )
+        let trimmed = collapsed.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
     }
 
     static func decodeHTMLEntities(_ value: String) -> String {

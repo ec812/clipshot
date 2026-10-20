@@ -85,7 +85,7 @@ final class SingleInstanceGuard {
             .filter { $0.processIdentifier != getpid() }
 
         if let existing = others.first {
-            existing.activate(options: [.activateIgnoringOtherApps])
+            existing.activate(options: [])
         }
         DistributedNotificationCenter.default().post(
             name: Self.showOverlayNotification,

@@ -34,7 +34,7 @@ final class ClipboardMonitor {
         rulesEngine: ShortenRulesEngine,
         dataStore: ItemDataStore,
         pasteboard: NSPasteboard = .general,
-        pollInterval: TimeInterval = 0.3
+        pollInterval: TimeInterval = 0.1
     ) {
         self.store = store
         self.privacyFilter = privacyFilter
@@ -53,6 +53,7 @@ final class ClipboardMonitor {
         let timer = Timer(timeInterval: pollInterval, repeats: true) { [weak self] _ in
             self?.poll()
         }
+        timer.tolerance = 0.01
         RunLoop.main.add(timer, forMode: .common)
         self.timer = timer
     }
@@ -108,7 +109,11 @@ final class ClipboardMonitor {
         }
 
         processingQueue.async { [weak self] in
-            self?.process(snapshot, bundleId: bundleId, sourceApp: sourceApp)
+            self?.process(
+                snapshot,
+                bundleId: bundleId,
+                sourceApp: sourceApp
+            )
         }
     }
 

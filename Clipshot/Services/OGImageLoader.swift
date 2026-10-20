@@ -1,8 +1,9 @@
 import Foundation
 import ImageIO
 
-/// Fetches and caches a page's Open Graph image.
+/// Fetches and caches a page's Open Graph image, title and description.
 ///
+/// One HTML fetch supplies all metadata; the image is downloaded separately.
 /// All work is async and intended to run off the main thread. Failures are
 /// negative-cached by `OGImageCache` so dead pages are not hammered.
 final class OGImageLoader: @unchecked Sendable {
@@ -45,16 +46,16 @@ final class OGImageLoader: @unchecked Sendable {
         }
     }
 
-    /// Returns PNG/JPEG/GIF bytes for the page's OG image, or nil on failure.
-    func imageData(for pageURL: URL) async -> Data? {
+    /// Returns cached or freshly fetched OG metadata and image bytes.
+    func preview(for pageURL: URL) async -> OGPagePreview? {
         guard let scheme = pageURL.scheme?.lowercased(),
               scheme == "http" || scheme == "https",
               pageURL.host != nil
         else { return nil }
 
         switch cache.lookup(url: pageURL) {
-        case .image(let data):
-            return data
+        case .preview(let preview):
+            return preview
         case .negative:
             return nil
         case .miss:
@@ -76,28 +77,41 @@ final class OGImageLoader: @unchecked Sendable {
             else {
                 throw OGImageError.notHTML
             }
-            guard let imageURL = OGImageParser.imageURL(
+
+            let metadata = OGImageParser.metadata(
                 fromHTML: html,
                 baseURL: htmlResponse.url ?? pageURL
-            ) else {
-                throw OGImageError.noImage
-            }
-
-            let (imageData, imageResponse) = try await fetch(
-                imageURL,
-                timeout: configuration.imageTimeout,
-                maxBytes: configuration.maxImageBytes,
-                accept: "image/*,*/*;q=0.1"
             )
-            guard Self.isImageResponse(imageResponse) else {
-                throw OGImageError.notImage
-            }
-            guard Self.isDecodableImage(imageData) else {
-                throw OGImageError.notImage
+            guard !metadata.isEmpty else {
+                throw OGImageError.noMetadata
             }
 
-            cache.storeImage(imageData, for: pageURL)
-            return imageData
+            var imageData: Data?
+            if let imageURL = metadata.imageURL {
+                do {
+                    let (data, response) = try await fetch(
+                        imageURL,
+                        timeout: configuration.imageTimeout,
+                        maxBytes: configuration.maxImageBytes,
+                        accept: "image/*,*/*;q=0.1"
+                    )
+                    if Self.isImageResponse(response), Self.isDecodableImage(data) {
+                        imageData = data
+                    }
+                } catch {
+                    if Task.isCancelled || Self.isCancellation(error) {
+                        throw error
+                    }
+                    // Keep the title/description even if the image fails.
+                }
+            }
+
+            let preview = OGPagePreview(imageData: imageData, metadata: metadata)
+            guard !preview.isEmpty else {
+                throw OGImageError.noMetadata
+            }
+            cache.storePreview(preview, for: pageURL)
+            return preview
         } catch {
             if Task.isCancelled || Self.isCancellation(error) {
                 return nil
@@ -105,6 +119,11 @@ final class OGImageLoader: @unchecked Sendable {
             cache.storeFailure(for: pageURL)
             return nil
         }
+    }
+
+    /// Backwards-compatible image-only entry point.
+    func imageData(for pageURL: URL) async -> Data? {
+        await preview(for: pageURL)?.imageData
     }
 
     func clearCache() {
@@ -180,7 +199,7 @@ enum OGImageError: Error {
     case invalidResponse
     case httpStatus(Int)
     case notHTML
-    case noImage
+    case noMetadata
     case notImage
     case tooLarge
 }

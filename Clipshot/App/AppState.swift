@@ -151,17 +151,16 @@ final class AppState: ObservableObject {
 
         let store = self.store
         let retentionDays = settings.retentionDays
-        Task.detached(priority: .userInitiated) { [weak self] in
+        Task.detached(priority: .userInitiated) { [self] in
             do {
                 try store.migrateIfNeeded()
                 _ = try? store.applyRetention(days: retentionDays)
             } catch {
                 await MainActor.run {
-                    self?.lastError = error.localizedDescription
+                    self.lastError = error.localizedDescription
                 }
             }
             await MainActor.run {
-                guard let self else { return }
                 self.reload()
                 if self.startMonitoring {
                     self.monitor.start()
@@ -229,12 +228,11 @@ final class AppState: ObservableObject {
 
         Task.detached(priority: .userInitiated) {
             do {
-                var loaded = try store.search(query, kind: kind, bundleId: bundleId)
-                if pinnedOnly {
-                    loaded = loaded.filter(\.isPinned)
-                }
-                if let pinboardID {
-                    loaded = loaded.filter { $0.pinboardId == pinboardID }
+                let results = try store.search(query, kind: kind, bundleId: bundleId)
+                let loaded = results.filter { item in
+                    if pinnedOnly && !item.isPinned { return false }
+                    if let pinboardID, item.pinboardId != pinboardID { return false }
+                    return true
                 }
                 let sources = try store.distinctSources()
                 let boards = try store.pinboards()
@@ -299,7 +297,21 @@ final class AppState: ObservableObject {
     }
 
     private func handleCaptured(_ item: ClipboardItem) {
-        if overlayController.isVisible {
+        guard overlayController.isVisible else { return }
+
+        // The monitor has already committed the item. For the common unfiltered
+        // view, publish it immediately instead of waiting for a DB re-query.
+        if searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+           filterKind == nil || filterKind == item.kind,
+           filterBundleId == nil || filterBundleId == item.bundleId,
+           !filterPinnedOnly || item.isPinned,
+           filterPinboardID == nil || filterPinboardID == item.pinboardId {
+            items.removeAll { $0.id == item.id }
+            items.insert(item, at: 0)
+            if selectedItemID == nil {
+                selectedItemID = item.id
+            }
+        } else {
             reload()
         }
     }
