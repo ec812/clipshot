@@ -91,8 +91,10 @@ Complete every item on a real Mac (simulators do not exercise menu-bar, full-scr
 - [ ] Press `Esc` → overlay hides. Click outside → overlay hides.
 - [ ] Type in the search field → results narrow with FTS; clear the field → full history returns.
 - [ ] Use the type and source-app filter menus and the Pinned/pinboard chips.
-- [ ] Press `␣` on a text item and an image item → Quick Look opens the preview.
-- [ ] Press `⌫` on a selected item → item is deleted.
+- [ ] Type a multi-word query in the search field → spaces are entered into the query; Backspace deletes query characters instead of history items.
+- [ ] Press `⌘⌫` with a search query present → the selected history item is deleted.
+- [ ] Press `⌘Y` on a text item and an image item → Quick Look opens the preview.
+- [ ] Press `⌫` with the search field not focused (click a card first) → the selected item is deleted.
 
 ### Color previews
 Copy each value below, then open the timeline. Every one must render a large rounded swatch plus the original text as a label. Shorten and QR must be absent from the action row and context menu for these items.

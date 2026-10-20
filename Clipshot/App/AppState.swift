@@ -836,6 +836,14 @@ final class AppState: ObservableObject {
             case kVK_ANSI_K:
                 if let item = selectedItem { beginShortening(item) }
                 return true
+            case kVK_ANSI_Y:
+                if let item = selectedItem { quickLook.preview(item, dataStore: dataStore) }
+                return true
+            case kVK_Delete:
+                // Command-Backspace always deletes the selected item, even while
+                // the search field has focus.
+                if let item = selectedItem { delete(item) }
+                return true
             default:
                 return false
             }
@@ -865,14 +873,24 @@ final class AppState: ObservableObject {
             pasteSelected(plainText: flags.contains(.shift))
             return true
         case kVK_Space:
+            // While editing the search field, Space must type a space.
+            if isTextInputFocused(event) { return false }
             if let item = selectedItem { quickLook.preview(item, dataStore: dataStore) }
             return true
         case kVK_Delete:
+            // While editing the search field, Backspace must edit the query.
+            // Use ⌘⌫ to delete a history item.
+            if isTextInputFocused(event) { return false }
             if let item = selectedItem { delete(item) }
             return true
         default:
             return false
         }
+    }
+
+    private func isTextInputFocused(_ event: NSEvent) -> Bool {
+        guard let responder = event.window?.firstResponder else { return false }
+        return responder is NSTextView || responder is NSTextField
     }
 
     // MARK: - Toast
