@@ -22,7 +22,8 @@ A native macOS menu-bar clipboard manager with link shortening built in — a Cl
 - Bottom-bar `NSPanel` timeline on the display under the pointer, over full-screen apps, resizable, compact mode
 - Full-text search (FTS5) and filters by type, source app, pinned and pinboard
 - Keyboard-first: `←/→`, `↩`, `⇧↩`, `⌘1–9`, `⌘N/E/R/P/K`, `⌘Y` Quick Look, `⌘⌫` delete
-- Rich previews: full-content color fills with readable value overlays (hex/rgb/hsl/oklch/oklab/named), Open Graph images with title and description for links, source-app icons and per-app accent-tinted cards
+- Rich previews: full-content color fills with readable value overlays (hex/rgb/hsl/oklch/oklab/named), Open Graph images with title and description for links (the raw URL paints immediately; previews enrich asynchronously), source-app icons and per-app accent-tinted cards
+- New captures are selected and scrolled into view immediately when the timeline is open
 - Plain-text paste, paste stack, Quick Look, pinboards, snippets, edit/rename, retention
 - Privacy: bundle-id ignore list (password managers by default), transient/concealed pasteboard markers, timed pause (also suspends OG fetches)
 
@@ -112,6 +113,8 @@ Tests live in `ClipshotTests/` (HistoryStore, PrivacyFilter, BitlyBackend via UR
 | Bitly access token | Keychain, service `com.ernest.clipshot` |
 
 Nothing is uploaded except the link you explicitly shorten (or that a rule shortens) to the configured backend.
+
+The history database persists across rebuilds and relaunches. Clipshot never deletes or recreates it as an error-recovery step: transient open failures are retried, `SQLITE_IOERR` reopens the same file, and persistent failures are surfaced in the timeline and menu bar.
 
 ## Adding another shortener backend
 

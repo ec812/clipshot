@@ -15,7 +15,13 @@ struct ClipshotApp: App {
             }
             NSLog("Clipshot: single-instance lock acquired (pid \(getpid()))")
         }
-        let state = AppState(startMonitoring: !isTesting)
+        let state: AppState
+        if isTesting {
+            // The XCTest app host must never open the user's real history DB.
+            state = AppState(store: try! HistoryStore.inMemory(), startMonitoring: false)
+        } else {
+            state = AppState(startMonitoring: true)
+        }
         _appState = StateObject(wrappedValue: state)
         AppDelegate.sharedState = state
     }

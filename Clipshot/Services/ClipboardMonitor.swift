@@ -137,18 +137,27 @@ final class ClipboardMonitor {
             return
         }
         guard payload.hash != lastHash else { return }
-        lastHash = payload.hash
 
         do {
-            let outcome = try store.insert(
-                kind: payload.kind,
-                text: payload.text,
-                title: payload.title,
-                dataPath: payload.dataPath,
-                sourceApp: sourceApp,
-                bundleId: bundleId,
-                hash: payload.hash
-            )
+            let outcome: InsertOutcome
+            do {
+                outcome = try insertPayload(
+                    payload,
+                    bundleId: bundleId,
+                    sourceApp: sourceApp
+                )
+            } catch {
+                guard (try? store.recoverAfterIOError(error)) == true else {
+                    throw error
+                }
+                outcome = try insertPayload(
+                    payload,
+                    bundleId: bundleId,
+                    sourceApp: sourceApp
+                )
+            }
+            lastHash = payload.hash
+
             DispatchQueue.main.async { [weak self] in
                 self?.onCapture?(outcome.item)
             }
@@ -168,5 +177,21 @@ final class ClipboardMonitor {
         } catch {
             NSLog("Clipshot: failed to capture clipboard item: \(error)")
         }
+    }
+
+    private func insertPayload(
+        _ payload: CapturedPayload,
+        bundleId: String?,
+        sourceApp: String?
+    ) throws -> InsertOutcome {
+        try store.insert(
+            kind: payload.kind,
+            text: payload.text,
+            title: payload.title,
+            dataPath: payload.dataPath,
+            sourceApp: sourceApp,
+            bundleId: bundleId,
+            hash: payload.hash
+        )
     }
 }

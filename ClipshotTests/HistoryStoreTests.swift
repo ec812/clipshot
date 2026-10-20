@@ -1,3 +1,4 @@
+import GRDB
 import XCTest
 @testable import Clipshot
 
@@ -232,5 +233,131 @@ final class HistoryStoreTests: XCTestCase {
 
         XCTAssertEqual(journalMode?.lowercased(), "wal")
         XCTAssertEqual(busyTimeout, 5000)
+    }
+
+    // MARK: - Persistence / recovery
+
+    private func makeTemporaryDatabase() throws -> (directory: URL, path: String) {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ClipshotPersistenceTests-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        return (directory, directory.appendingPathComponent("clipshot.sqlite").path)
+    }
+
+    private func inode(for path: String) throws -> NSNumber? {
+        let attributes = try FileManager.default.attributesOfItem(atPath: path)
+        return attributes[.systemFileNumber] as? NSNumber
+    }
+
+    func testDefaultDatabasePathIsStableAndOutsideBuildProducts() throws {
+        let url = try HistoryStore.defaultDatabaseURL()
+        XCTAssertEqual(url.lastPathComponent, "clipshot.sqlite")
+        XCTAssertTrue(url.path.contains("/Library/Application Support/Clipshot/"))
+        XCTAssertFalse(url.path.contains("DerivedData"))
+    }
+
+    func testFileDatabasePersistsAcrossFreshQueueAndMigrationsAreIdempotent() throws {
+        let (directory, path) = try makeTemporaryDatabase()
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let first = try HistoryStore(path: path)
+        for index in 1...3 {
+            _ = try first.insert(kind: .text, text: "persist \(index)", hash: "persist-\(index)")
+        }
+        let applied = try first.dbQueue.read { db in
+            try HistoryStore.migrator.appliedIdentifiers(db)
+        }
+        XCTAssertEqual(applied, ["v1", "v2-bitly-backend"])
+        try first.dbQueue.close()
+
+        let second = try HistoryStore(path: path)
+        XCTAssertEqual(try second.itemCount(), 3)
+        XCTAssertEqual(try second.search("persist").count, 3)
+        let appliedAgain = try second.dbQueue.read { db in
+            try HistoryStore.migrator.appliedIdentifiers(db)
+        }
+        XCTAssertEqual(appliedAgain, applied)
+
+        _ = try second.insert(kind: .text, text: "persist 4", hash: "persist-4")
+        try second.dbQueue.close()
+
+        let third = try HistoryStore(path: path)
+        XCTAssertEqual(try third.itemCount(), 4)
+        XCTAssertEqual(try third.search("persist").count, 4)
+        try third.dbQueue.close()
+    }
+
+    func testReopenWithWALFilesPresentDoesNotRecreateOrLoseRows() throws {
+        let (directory, path) = try makeTemporaryDatabase()
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let first = try HistoryStore(path: path)
+        for index in 1...3 {
+            _ = try first.insert(kind: .text, text: "wal \(index)", hash: "wal-\(index)")
+        }
+
+        // A second live connection leaves -wal/-shm files in place.
+        let second = try HistoryStore(path: path)
+        _ = try second.insert(kind: .text, text: "wal 4", hash: "wal-4")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: path + "-wal"))
+        XCTAssertEqual(try second.itemCount(), 4)
+
+        let inodeBefore = try inode(for: path)
+        try first.dbQueue.close()
+        try second.dbQueue.close()
+
+        let reopened = try HistoryStore(path: path)
+        XCTAssertEqual(try reopened.itemCount(), 4)
+        XCTAssertEqual(try reopened.search("wal").count, 4)
+        XCTAssertEqual(try inode(for: path), inodeBefore)
+        try reopened.dbQueue.close()
+    }
+
+    func testRecoveryReopensSameFileWithoutDeletingRows() throws {
+        let (directory, path) = try makeTemporaryDatabase()
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let store = try HistoryStore(path: path)
+        for index in 1...3 {
+            _ = try store.insert(kind: .text, text: "recover \(index)", hash: "recover-\(index)")
+        }
+        let inodeBefore = try inode(for: path)
+
+        let simulatedIOError = DatabaseError(
+            resultCode: .SQLITE_IOERR,
+            message: "disk I/O error",
+            sql: "PRAGMA query_only = 1"
+        )
+        XCTAssertTrue(try store.recoverAfterIOError(simulatedIOError))
+        XCTAssertEqual(try store.itemCount(), 3)
+        XCTAssertEqual(try store.search("recover").count, 3)
+        XCTAssertEqual(try inode(for: path), inodeBefore)
+
+        let constraintError = DatabaseError(resultCode: .SQLITE_CONSTRAINT)
+        XCTAssertFalse(try store.recoverAfterIOError(constraintError))
+        try store.dbQueue.close()
+    }
+
+    func testCorruptWALDoesNotDeleteDatabaseFile() throws {
+        let (directory, path) = try makeTemporaryDatabase()
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let store = try HistoryStore(path: path)
+        _ = try store.insert(kind: .text, text: "keep me", hash: "keep")
+        try store.dbQueue.close()
+
+        let inodeBefore = try inode(for: path)
+        try Data([0xDE, 0xAD, 0xBE, 0xEF]).write(to: URL(fileURLWithPath: path + "-wal"))
+
+        do {
+            let reopened = try HistoryStore(path: path)
+            _ = try? reopened.itemCount()
+            try? reopened.dbQueue.close()
+        } catch {
+            // A corrupt WAL may legitimately fail to open; the main file must remain.
+        }
+
+        XCTAssertTrue(FileManager.default.fileExists(atPath: path))
+        XCTAssertEqual(try inode(for: path), inodeBefore)
     }
 }

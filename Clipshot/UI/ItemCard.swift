@@ -350,6 +350,15 @@ private struct URLPreviewView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
+            // The raw URL is the first-paint fallback. Metadata (and the image)
+            // enrich the card afterward without delaying the item itself.
+            if preview?.title == nil, preview?.description == nil {
+                Text(fallbackText)
+                    .font(.system(size: compact ? 9.5 : 10.5))
+                    .lineLimit(compact ? 1 : 2)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
             thumbnail
 
             if let title = preview?.title {
@@ -364,13 +373,6 @@ private struct URLPreviewView: View {
                     .font(.system(size: compact ? 9 : 10))
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-
-            if preview?.title == nil, preview?.description == nil {
-                Text(fallbackText)
-                    .font(.system(size: compact ? 9.5 : 10.5))
-                    .lineLimit(compact ? 1 : 2)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
@@ -412,6 +414,9 @@ private struct URLPreviewView: View {
 
     private func refresh() {
         guard let url else { return }
-        previews.request(for: url, enabled: enabled)
+        // Let the item and its raw URL paint before any preview/network work.
+        DispatchQueue.main.async {
+            previews.request(for: url, enabled: enabled)
+        }
     }
 }

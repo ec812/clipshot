@@ -14,6 +14,9 @@ struct TimelineView: View {
         VStack(spacing: 0) {
             resizeHandle
             header
+            if let databaseError = appState.databaseError {
+                databaseBanner(databaseError)
+            }
             Divider().opacity(0.25)
             filterBar
             Divider().opacity(0.15)
@@ -84,6 +87,21 @@ struct TimelineView: View {
         }
         .frame(height: 10)
         .padding(.top, 2)
+    }
+
+    private func databaseBanner(_ message: String) -> some View {
+        HStack(alignment: .top, spacing: 6) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 9, weight: .semibold))
+            Text(message)
+                .font(.system(size: 9))
+                .lineLimit(2)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .foregroundStyle(.red)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 4)
+        .background(Color.red.opacity(0.08))
     }
 
     private var header: some View {

@@ -64,6 +64,7 @@ final class AppState: ObservableObject {
     @Published var showNewPinboardSheet = false
     @Published var pasteStackCount = 0
     @Published private(set) var isSearchFieldFocused = false
+    @Published private(set) var databaseError: String?
 
     var isTesting: Bool
     private var startMonitoring: Bool
@@ -86,15 +87,18 @@ final class AppState: ObservableObject {
         let resolvedKeychain = keychain ?? KeychainStore()
 
         let resolvedStore: HistoryStore
+        var initialDatabaseError: String?
         if let store {
             resolvedStore = store
         } else {
             do {
-                let url = try HistoryStore.defaultDatabaseURL()
-                resolvedStore = try HistoryStore.deferred(path: url.path)
+                resolvedStore = try HistoryStore.openDefaultDatabase()
             } catch {
-                NSLog("Clipshot: could not open history database, using memory store: \(error)")
+                let path = (try? HistoryStore.defaultDatabaseURL().path) ?? "unknown path"
+                let message = "History database unavailable at \(path): \(error.localizedDescription). Using a temporary store; the database file was not deleted."
+                NSLog("Clipshot: \(message)")
                 resolvedStore = try! HistoryStore.inMemory()
+                initialDatabaseError = message
             }
         }
 
@@ -111,6 +115,7 @@ final class AppState: ObservableObject {
         self.registry = ShortenerBackendRegistry.shared
         self.startMonitoring = startMonitoring
         self.isTesting = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+        self.databaseError = initialDatabaseError
 
         self.monitor = ClipboardMonitor(
             store: resolvedStore,
@@ -156,8 +161,14 @@ final class AppState: ObservableObject {
                 try store.migrateIfNeeded()
                 _ = try? store.applyRetention(days: retentionDays)
             } catch {
+                let recovered = (try? store.recoverAfterIOError(error)) ?? false
                 await MainActor.run {
-                    self.lastError = error.localizedDescription
+                    if recovered {
+                        self.databaseError = nil
+                    } else {
+                        self.databaseError = "History database error: \(error.localizedDescription)"
+                        self.lastError = error.localizedDescription
+                    }
                 }
             }
             await MainActor.run {
@@ -252,8 +263,16 @@ final class AppState: ObservableObject {
                     self.recentShortLinks = links
                 }
             } catch {
+                let recovered = (try? store.recoverAfterIOError(error)) ?? false
+                if recovered {
+                    await MainActor.run { [weak self] in
+                        self?.databaseError = nil
+                        self?.reload()
+                    }
+                    return
+                }
                 await MainActor.run { [weak self] in
-                    self?.lastError = error.localizedDescription
+                    self?.databaseError = "History database error: \(error.localizedDescription)"
                 }
             }
         }
@@ -267,13 +286,22 @@ final class AppState: ObservableObject {
         let store = self.store
         Task.detached(priority: .userInitiated) {
             do {
-                try operation(store)
+                do {
+                    try operation(store)
+                } catch {
+                    guard (try? store.recoverAfterIOError(error)) == true else {
+                        throw error
+                    }
+                    try operation(store)
+                }
                 await MainActor.run { [weak self] in
+                    self?.databaseError = nil
                     completion()
                     self?.reload()
                 }
             } catch {
                 await MainActor.run { [weak self] in
+                    self?.databaseError = "History database error: \(error.localizedDescription)"
                     self?.lastError = error.localizedDescription
                 }
             }
@@ -311,9 +339,9 @@ final class AppState: ObservableObject {
             reloadGeneration &+= 1
             items.removeAll { $0.id == item.id }
             items.insert(item, at: 0)
-            if selectedItemID == nil {
-                selectedItemID = item.id
-            }
+            // Select the new item so the timeline scrolls it into view; otherwise
+            // a capture can be published off-screen while an older card is selected.
+            selectedItemID = item.id
         } else {
             reload()
         }

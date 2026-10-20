@@ -58,6 +58,19 @@ final class ClipboardPayloadReaderTests: XCTestCase {
         XCTAssertEqual(payload?.kind, .url)
     }
 
+    func testURLCapturePathIsSynchronousAndDoesNotFetchPreviews() {
+        let started = Date()
+        let payload = ClipboardPayloadReader.process(
+            snapshot(string: "https://example.com/article"),
+            dataStore: dataStore
+        )
+        let elapsed = Date().timeIntervalSince(started)
+
+        XCTAssertEqual(payload?.kind, .url)
+        XCTAssertNil(payload?.dataPath)
+        XCTAssertLessThan(elapsed, 0.1)
+    }
+
     func testFileURLs() {
         let url = URL(fileURLWithPath: "/tmp/clipshot-test.txt")
         let payload = ClipboardPayloadReader.process(snapshot(fileURLs: [url]), dataStore: dataStore)

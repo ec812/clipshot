@@ -5,6 +5,11 @@ struct MenuBarContent: View {
     @ObservedObject var appState: AppState
 
     var body: some View {
+        if let databaseError = appState.databaseError {
+            Text("History database error: \(databaseError)")
+            Divider()
+        }
+
         if let hotkeyError = appState.hotkeyError {
             Text("Shortcuts unavailable: \(hotkeyError)")
             Divider()

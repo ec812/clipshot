@@ -14,14 +14,14 @@ xcodebuild -scheme Clipshot test
 Latest verified result on this machine (Xcode 27.1, macOS 27.0.1):
 
 - `xcodebuild -scheme Clipshot build` → **BUILD SUCCEEDED**
-- `xcodebuild -scheme Clipshot test` → **TEST SUCCEEDED** — 134 tests, 0 failures
-  - `HistoryStoreTests` — 14
+- `xcodebuild -scheme Clipshot test` → **TEST SUCCEEDED** — 140 tests, 0 failures
+  - `HistoryStoreTests` — 19
   - `PrivacyFilterTests` — 10
   - `BitlyBackendTests` — 17
   - `ShortenRulesEngineTests` — 10
   - `PasteStackTests` — 3
   - `ClipboardColorParserTests` — 20
-  - `ClipboardPayloadReaderTests` — 6
+  - `ClipboardPayloadReaderTests` — 7
   - `OGImageParserTests` — 19
   - `OGImageCacheTests` — 8
   - `AppIconAccentTests` — 8
@@ -37,9 +37,9 @@ Note: Xcode prints unrelated `CoreDevice` / `CoreSimulator` warnings on this mac
 
 | Area | What is asserted |
 | --- | --- |
-| `HistoryStore` | insert, hash dedupe + timestamp bump, FTS5 prefix search, punctuation-safe queries, kind/bundle filters, retention (pinned kept), pinboards, short-link cache, rule ordering, edit/delete, WAL journal mode + 5 s busy timeout |
+| `HistoryStore` | insert, hash dedupe + timestamp bump, FTS5 prefix search, punctuation-safe queries, kind/bundle filters, retention (pinned kept), pinboards, short-link cache, rule ordering, edit/delete, WAL journal mode + 5 s busy timeout, file reopen persistence, migration idempotency, WAL-present reopen without recreation, I/O-error recovery on the same file, corrupt-WAL leaves the database file intact |
 | `PrivacyFilter` | ignore list, transient/auto-generated markers, concealment markers, pause expiry, resume, live ignore-list updates |
-| `ClipboardPayloadReader` | text/color/URL/file classification and image payload persistence from a background-safe pasteboard snapshot |
+| `ClipboardPayloadReader` | text/color/URL/file classification, URL capture path is synchronous and does not fetch previews, image payload persistence from a background-safe pasteboard snapshot |
 | `SingleInstanceGuard` | second lock acquisition fails, pid is written, lock can be reacquired after release |
 | `BitlyBackend` | POST `/shorten` (Bearer header, `long_url`, `domain`, `group_guid`, cache), POST `/bitlinks` custom-slug path, 401 `INVALID_ARG_ACCESS_TOKEN`, 404, `BRANDED_LINK_MONTHLY_LIMIT_EXCEEDED`, `DNS_CONFIGURATION_ERROR`, validation, 503, missing token, PATCH update, DELETE, GET `/user` verify, clicks parsing + cache update, capabilities |
 | `ShortenRulesEngine` | URL/host globs, source app matching, priority order, disabled rules, slug tokens and sanitization, determinism |
@@ -142,8 +142,17 @@ Copy each value below, then open the timeline. Each color item's entire content 
 - [ ] Pause capture (menu bar), copy a new URL, open the timeline → no OG fetch occurs while paused; resume and reopen → the fetch starts.
 
 ### Capture latency
-- [ ] With the timeline open, copy a short unique string → the new card appears immediately (no manual refresh).
+- [ ] With the timeline open, copy a short unique string → the new card appears immediately and is selected/scrolled into view (no manual refresh).
+- [ ] Copy a URL → the raw URL is the first content rendered; the OG image/title/description enrich the card afterward without delaying the item.
 - [ ] Measured on this machine with a simulated pasteboard write: p50 **≈79 ms** from write to the item being published in the visible list (samples 36.5, 41.8, 76.8, 80.9, 141.0, 151.6 ms). Clipboard polling is 0.1 s with a 0.01 s tolerance. A user-initiated `ProcessInfo` activity suppresses App Nap while monitoring so the timer is not throttled in the background; idle CPU measured 0.0–0.3%.
+- [ ] URL vs text copy→card-onAppear (two pairs each): before the visibility change URL 75.0/59.1 ms vs text 62.6/59.7 ms; after URL 78.1/121.4 ms vs text 89.5/103.0 ms. There is no URL-specific insert/network delay; both are under 150 ms.
+
+### Database persistence across rebuilds
+- [ ] Launch build A; copy three unique text items; confirm all three cards.
+- [ ] Stop the app with Xcode Stop (SIGKILL), then build B and relaunch.
+- [ ] Search for the unique text prefix → all three items are still present; the launch log prints the same `~/Library/Application Support/Clipshot/clipshot.sqlite` path for both builds.
+- [ ] Confirm there is no `SQLite error 10` / `PRAGMA query_only` disk-I/O message in Console during the search.
+- [ ] Do not replace or unlink `clipshot.sqlite`, `-wal`, or `-shm` while the app is running. If an external process does, Clipshot now closes and reopens the same file (no deletion/recreation) and surfaces a red error banner if reopening fails.
 
 ### Source-app icon + accent
 > A timeline containing clips from only one app legitimately shows that app's accent on every card. For example, a Brave-only history is orange-red — this is not a generic red tint. Capture from at least two apps before judging per-app accents. `Docs/verify-accents-v2.png` is a diagnostic overlay render showing Safari/Finder blue borders and washes, Notes yellow, Xcode blue, Brave orange-red, and Terminal neutral, captured only after every accent had resolved.

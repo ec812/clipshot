@@ -7,7 +7,10 @@ struct InsertOutcome {
 }
 
 final class HistoryStore: ShortLinkCaching, @unchecked Sendable {
-    let dbQueue: DatabaseQueue
+    private(set) var dbQueue: DatabaseQueue
+    let path: String?
+
+    private let reopenLock = NSLock()
 
     static let configuration: Configuration = {
         var configuration = Configuration()
@@ -21,8 +24,13 @@ final class HistoryStore: ShortLinkCaching, @unchecked Sendable {
         case deferred
     }
 
-    init(dbQueue: DatabaseQueue, migration: MigrationMode = .immediately) throws {
+    init(
+        dbQueue: DatabaseQueue,
+        migration: MigrationMode = .immediately,
+        path: String? = nil
+    ) throws {
         self.dbQueue = dbQueue
+        self.path = path
         if migration == .immediately {
             try Self.migrator.migrate(dbQueue)
         }
@@ -31,14 +39,19 @@ final class HistoryStore: ShortLinkCaching, @unchecked Sendable {
     convenience init(path: String, migration: MigrationMode = .immediately) throws {
         try self.init(
             dbQueue: DatabaseQueue(path: path, configuration: Self.configuration),
-            migration: migration
+            migration: migration,
+            path: path
         )
     }
 
     /// Opens the app database without running migrations. The app runs
     /// `migrateIfNeeded()` on a background task before its first query.
     static func deferred(path: String) throws -> HistoryStore {
-        try HistoryStore(dbQueue: DatabaseQueue(path: path, configuration: configuration), migration: .deferred)
+        try HistoryStore(
+            dbQueue: DatabaseQueue(path: path, configuration: configuration),
+            migration: .deferred,
+            path: path
+        )
     }
 
     func migrateIfNeeded() throws {
@@ -47,6 +60,64 @@ final class HistoryStore: ShortLinkCaching, @unchecked Sendable {
 
     static func inMemory() throws -> HistoryStore {
         try HistoryStore(dbQueue: DatabaseQueue(configuration: Self.configuration))
+    }
+
+    /// Opens the default database, retrying transient open failures (for
+    /// example a stale lock or a WAL file being recovered). The database is
+    /// never deleted or recreated here.
+    static func openDefaultDatabase(retries: Int = 3) throws -> HistoryStore {
+        let url = try defaultDatabaseURL()
+        NSLog("Clipshot: history database path = \(url.path)")
+        let attempts = max(1, retries)
+        var lastError: Error?
+
+        for attempt in 1...attempts {
+            do {
+                return try deferred(path: url.path)
+            } catch {
+                lastError = error
+                NSLog(
+                    "Clipshot: open history database attempt \(attempt)/\(attempts) failed at \(url.path): \(error)"
+                )
+                if attempt < attempts {
+                    Thread.sleep(forTimeInterval: 0.15 * Double(attempt))
+                }
+            }
+        }
+
+        throw lastError ?? DatabaseError(
+            resultCode: .SQLITE_CANTOPEN,
+            message: "Could not open history database at \(url.path)"
+        )
+    }
+
+    static func isIOError(_ error: Error) -> Bool {
+        guard let databaseError = error as? DatabaseError else { return false }
+        return databaseError.resultCode == .SQLITE_IOERR
+    }
+
+    /// Reopens the same database file after an I/O failure (for example a WAL
+    /// file unlinked by an external process). Never deletes or recreates data.
+    /// Returns false when the error is not an I/O error or the store is memory-only.
+    @discardableResult
+    func recoverAfterIOError(_ error: Error) throws -> Bool {
+        guard Self.isIOError(error), let path else { return false }
+
+        reopenLock.lock()
+        defer { reopenLock.unlock() }
+
+        NSLog("Clipshot: database I/O error at \(path): \(error). Reopening same file; no data will be deleted.")
+
+        do {
+            try? dbQueue.close()
+            dbQueue = try DatabaseQueue(path: path, configuration: Self.configuration)
+            try Self.migrator.migrate(dbQueue)
+            NSLog("Clipshot: database reopened at \(path)")
+            return true
+        } catch {
+            NSLog("Clipshot: database reopen FAILED at \(path): \(error)")
+            throw error
+        }
     }
 
     static func defaultDatabaseURL() throws -> URL {
