@@ -306,6 +306,9 @@ final class AppState: ObservableObject {
            filterBundleId == nil || filterBundleId == item.bundleId,
            !filterPinnedOnly || item.isPinned,
            filterPinboardID == nil || filterPinboardID == item.pinboardId {
+            // Discard any reload that started before this insert; otherwise its
+            // pre-insert snapshot can overwrite the item we are publishing now.
+            reloadGeneration &+= 1
             items.removeAll { $0.id == item.id }
             items.insert(item, at: 0)
             if selectedItemID == nil {

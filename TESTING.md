@@ -143,7 +143,7 @@ Copy each value below, then open the timeline. Each color item's entire content 
 
 ### Capture latency
 - [ ] With the timeline open, copy a short unique string → the new card appears immediately (no manual refresh).
-- [ ] Measured on this machine with a simulated pasteboard write: p50 **≈79 ms** from write to the item being published in the visible list (samples 36.5, 41.8, 76.8, 80.9, 141.0, 151.6 ms). Clipboard polling is 0.1 s with a 0.01 s tolerance; idle CPU measured 0.0–0.3%.
+- [ ] Measured on this machine with a simulated pasteboard write: p50 **≈79 ms** from write to the item being published in the visible list (samples 36.5, 41.8, 76.8, 80.9, 141.0, 151.6 ms). Clipboard polling is 0.1 s with a 0.01 s tolerance. A user-initiated `ProcessInfo` activity suppresses App Nap while monitoring so the timer is not throttled in the background; idle CPU measured 0.0–0.3%.
 
 ### Source-app icon + accent
 > A timeline containing clips from only one app legitimately shows that app's accent on every card. For example, a Brave-only history is orange-red — this is not a generic red tint. Capture from at least two apps before judging per-app accents. `Docs/verify-accents-v2.png` is a diagnostic overlay render showing Safari/Finder blue borders and washes, Notes yellow, Xcode blue, Brave orange-red, and Terminal neutral, captured only after every accent had resolved.

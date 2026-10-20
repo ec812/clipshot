@@ -23,6 +23,7 @@ final class ClipboardMonitor {
     )
 
     private var timer: Timer?
+    private var activity: NSObjectProtocol?
     private var lastChangeCount: Int
     private var ignoredChangeCounts: Set<Int> = []
     /// Only touched on `processingQueue`.
@@ -49,6 +50,12 @@ final class ClipboardMonitor {
 
     func start() {
         guard timer == nil else { return }
+        // Keep App Nap from throttling the 10 Hz polling timer while Clipshot is
+        // in the background; otherwise copies can appear seconds late.
+        activity = ProcessInfo.processInfo.beginActivity(
+            options: [.userInitiated],
+            reason: "Capture clipboard changes promptly"
+        )
         lastChangeCount = pasteboard.changeCount
         let timer = Timer(timeInterval: pollInterval, repeats: true) { [weak self] _ in
             self?.poll()
@@ -61,6 +68,10 @@ final class ClipboardMonitor {
     func stop() {
         timer?.invalidate()
         timer = nil
+        if let activity {
+            ProcessInfo.processInfo.endActivity(activity)
+            self.activity = nil
+        }
     }
 
     /// Call immediately after the app writes to the pasteboard itself so the
