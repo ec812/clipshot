@@ -31,7 +31,7 @@ struct ItemCard: View {
     private static let minimumWidth: CGFloat = 360
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 5) {
+        VStack(alignment: .leading, spacing: 7) {
             header
             preview
             if item.kind != .color {
@@ -42,7 +42,8 @@ struct ItemCard: View {
                 actionRow
             }
         }
-        .padding(9)
+        .padding(.horizontal, 9)
+        .padding(.vertical, 13)
         .frame(width: max(Self.minimumWidth, compact ? 138 : 204))
         .frame(maxHeight: .infinity)
         .background(cardBackground)
@@ -97,28 +98,28 @@ struct ItemCard: View {
     }
 
     private var header: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: 5) {
             Image(systemName: item.kind.systemImage)
-                .font(.system(size: 9, weight: .semibold))
+                .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(.secondary)
             Text(item.kind.displayName.uppercased())
-                .font(.system(size: 7.5, weight: .semibold))
+                .font(.system(size: 10, weight: .semibold))
                 .tracking(0.5)
                 .foregroundStyle(.secondary)
             Spacer(minLength: 2)
             if item.isSnippet {
                 Image(systemName: "text.badge.plus")
-                    .font(.system(size: 8))
+                    .font(.system(size: 10.5))
                     .foregroundStyle(.secondary)
             }
             if item.hasShortLink {
                 Image(systemName: "link")
-                    .font(.system(size: 8, weight: .bold))
+                    .font(.system(size: 10.5, weight: .bold))
                     .foregroundStyle(Color.accentColor)
             }
             if item.isPinned {
                 Image(systemName: "pin.fill")
-                    .font(.system(size: 8))
+                    .font(.system(size: 10.5))
                     .foregroundStyle(.orange)
             }
         }
@@ -144,7 +145,7 @@ struct ItemCard: View {
                     .overlay(alignment: .bottomLeading) {
                         Text(text)
                             .font(.system(
-                                size: compact ? 9.5 : 11,
+                                size: compact ? 14 : 17,
                                 weight: .semibold,
                                 design: .monospaced
                             ))
@@ -152,7 +153,7 @@ struct ItemCard: View {
                             .lineLimit(2)
                             .minimumScaleFactor(0.7)
                             .padding(.horizontal, 8)
-                            .padding(.vertical, 5)
+                            .padding(.vertical, 8)
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .background(
                                 LinearGradient(
@@ -197,16 +198,16 @@ struct ItemCard: View {
         case .file:
             HStack(spacing: 5) {
                 Image(systemName: "doc.fill")
-                    .font(.system(size: compact ? 16 : 20))
+                    .font(.system(size: compact ? 21 : 26))
                     .foregroundStyle(.secondary)
                 Text(item.title ?? item.previewText)
-                    .font(.system(size: compact ? 10 : 11))
+                    .font(.system(size: compact ? 13 : 14.5))
                     .lineLimit(compact ? 3 : 4)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         default:
             Text(item.previewText)
-                .font(.system(size: compact ? 10 : 11))
+                .font(.system(size: compact ? 13 : 14.5))
                 .lineLimit(compact ? 4 : 7)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .textSelection(.disabled)
@@ -215,7 +216,7 @@ struct ItemCard: View {
 
     private var fallbackPreview: some View {
         Text(item.title ?? item.kind.displayName)
-            .font(.system(size: 11))
+            .font(.system(size: 14.5))
             .foregroundStyle(.secondary)
             .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -226,19 +227,19 @@ struct ItemCard: View {
                 Image(nsImage: icon)
                     .resizable()
                     .aspectRatio(contentMode: .fit)
-                    .frame(width: compact ? 9 : 10, height: compact ? 9 : 10)
+                    .frame(width: compact ? 11 : 13, height: compact ? 11 : 13)
             } else {
                 Image(systemName: "app.fill")
-                    .font(.system(size: 7))
+                    .font(.system(size: 9))
                     .foregroundStyle(.secondary)
             }
             Text(item.sourceApp ?? "Unknown")
-                .font(.system(size: 8.5))
+                .font(.system(size: 11))
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
             Spacer(minLength: 1)
             Text(relativeTime)
-                .font(.system(size: 8.5))
+                .font(.system(size: 11))
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
         }
@@ -270,15 +271,15 @@ struct ItemCard: View {
                 actionButton("rectangle.stack.badge.plus", help: "Add to paste stack") { onAddToStack() }
             }
         }
-        .padding(.top, 2)
+        .padding(.top, 5)
     }
 
     private func actionButton(_ systemImage: String, help: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: systemImage)
-                .font(.system(size: 9.5, weight: .medium))
-                .frame(width: 17, height: 17)
-                .background(RoundedRectangle(cornerRadius: 4).fill(Color.primary.opacity(0.07)))
+                .font(.system(size: 12.5, weight: .medium))
+                .frame(width: 22, height: 22)
+                .background(RoundedRectangle(cornerRadius: 5).fill(Color.primary.opacity(0.07)))
         }
         .buttonStyle(.plain)
         .help(help)
@@ -349,12 +350,12 @@ private struct URLPreviewView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 6) {
             // The raw URL is the first-paint fallback. Metadata (and the image)
             // enrich the card afterward without delaying the item itself.
             if preview?.title == nil, preview?.description == nil {
                 Text(fallbackText)
-                    .font(.system(size: compact ? 9.5 : 10.5))
+                    .font(.system(size: compact ? 12.5 : 13.5))
                     .lineLimit(compact ? 1 : 2)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -363,14 +364,14 @@ private struct URLPreviewView: View {
 
             if let title = preview?.title {
                 Text(title)
-                    .font(.system(size: compact ? 10 : 11, weight: .semibold))
+                    .font(.system(size: compact ? 13 : 14.5, weight: .semibold))
                     .lineLimit(1)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
 
             if let description = preview?.description {
                 Text(description)
-                    .font(.system(size: compact ? 9 : 10))
+                    .font(.system(size: compact ? 12 : 13))
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -400,7 +401,7 @@ private struct URLPreviewView: View {
                             .scaledToFill()
                     } else {
                         Image(systemName: "photo")
-                            .font(.system(size: 15, weight: .light))
+                            .font(.system(size: 19.5, weight: .light))
                             .foregroundStyle(.tertiary)
                     }
                 }
