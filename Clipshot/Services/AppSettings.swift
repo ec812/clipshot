@@ -49,7 +49,7 @@ final class AppSettings: ObservableObject {
         self.retentionDays = defaults.object(forKey: Keys.retentionDays) as? Int ?? 0
         self.showDockIcon = defaults.bool(forKey: Keys.showDockIcon)
         self.launchAtLogin = defaults.bool(forKey: Keys.launchAtLogin)
-        self.overlayHeight = defaults.object(forKey: Keys.overlayHeight) as? Double ?? 260
+        self.overlayHeight = defaults.object(forKey: Keys.overlayHeight) as? Double ?? 460
         self.alwaysCompact = defaults.bool(forKey: Keys.alwaysCompact)
         self.preferShortLinks = defaults.object(forKey: Keys.preferShortLinks) as? Bool ?? true
         self.fetchLinkPreviews = defaults.object(forKey: Keys.fetchLinkPreviews) as? Bool ?? true

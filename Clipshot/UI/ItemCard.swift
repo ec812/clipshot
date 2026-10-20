@@ -31,22 +31,59 @@ struct ItemCard: View {
     private static let minimumWidth: CGFloat = 360
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 7) {
-            header
+        VStack(spacing: 0) {
+            CardBand(
+                icon: appIcons.icon(for: item.bundleId),
+                sourceApp: item.sourceApp ?? "Unknown",
+                kind: item.kind,
+                relativeTime: relativeTime,
+                accent: appIcons.accent(for: item.bundleId),
+                isSelected: isSelected,
+                isPinned: item.isPinned,
+                hasShortLink: item.hasShortLink,
+                isSnippet: item.isSnippet,
+                compact: compact
+            )
+
             preview
-            if item.kind != .color {
-                Spacer(minLength: 0)
-            }
-            metadata
-            if isSelected {
-                actionRow
-            }
+                .padding(
+                    .horizontal,
+                    item.kind == .color ? 0 : CardChromeStyle.bodyHorizontalPadding
+                )
+                .padding(
+                    .vertical,
+                    item.kind == .color ? 0 : CardChromeStyle.bodyVerticalPadding
+                )
+                .frame(
+                    maxWidth: .infinity,
+                    maxHeight: .infinity,
+                    alignment: .topLeading
+                )
+
+            CardFooter(
+                kind: item.kind,
+                isPinned: item.isPinned,
+                compact: compact,
+                onCopy: onCopy,
+                onPaste: onPaste,
+                onPin: onPin,
+                onPlainPaste: onPlainPaste,
+                onShorten: onShorten,
+                onQR: onQR,
+                onAddToStack: onAddToStack,
+                onEdit: onEdit,
+                onRename: onRename
+            )
         }
-        .padding(.horizontal, 9)
-        .padding(.vertical, 13)
         .frame(width: max(Self.minimumWidth, compact ? 138 : 204))
         .frame(maxHeight: .infinity)
         .background(cardBackground)
+        .clipShape(
+            RoundedRectangle(
+                cornerRadius: CardChromeStyle.cornerRadius,
+                style: .continuous
+            )
+        )
         .overlay(cardBorder)
         .contentShape(Rectangle())
         .onTapGesture(count: 2) { onPaste() }
@@ -60,28 +97,30 @@ struct ItemCard: View {
     }
 
     private var cardBackground: some View {
-        RoundedRectangle(cornerRadius: 11, style: .continuous)
-            .fill(backgroundColor)
-    }
-
-    private var cardBorder: some View {
-        RoundedRectangle(cornerRadius: 11, style: .continuous)
-            .stroke(
-                borderColor,
-                lineWidth: CardAccentStyle.borderWidth(isSelected: isSelected)
+        Rectangle()
+            .fill(
+                isSelected
+                    ? Color.primary.opacity(0.09)
+                    : Color.primary.opacity(0.05)
             )
     }
 
-    private var backgroundColor: Color {
-        if let tint = CardAccentStyle.backgroundTint(for: accentNSColor, isSelected: isSelected) {
-            return tint.color
-        }
-        if isSelected { return Color.accentColor.opacity(0.16) }
-        return Color.primary.opacity(0.05)
+    private var cardBorder: some View {
+        RoundedRectangle(
+            cornerRadius: CardChromeStyle.cornerRadius,
+            style: .continuous
+        )
+        .stroke(
+            borderColor,
+            lineWidth: CardAccentStyle.borderWidth(isSelected: isSelected)
+        )
     }
 
     private var borderColor: Color {
-        if let tint = CardAccentStyle.borderTint(for: accentNSColor, isSelected: isSelected) {
+        if let tint = CardAccentStyle.borderTint(
+            for: accentNSColor,
+            isSelected: isSelected
+        ) {
             return tint.color
         }
         if isSelected { return Color.accentColor.opacity(0.9) }
@@ -89,40 +128,7 @@ struct ItemCard: View {
     }
 
     private var accentNSColor: NSColor? {
-        if item.kind == .color,
-           let text = item.text,
-           let parsed = ClipboardColorParser.parse(text) {
-            return parsed.nsColor
-        }
-        return appIcons.accent(for: item.bundleId)
-    }
-
-    private var header: some View {
-        HStack(spacing: 5) {
-            Image(systemName: item.kind.systemImage)
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(.secondary)
-            Text(item.kind.displayName.uppercased())
-                .font(.system(size: 10, weight: .semibold))
-                .tracking(0.5)
-                .foregroundStyle(.secondary)
-            Spacer(minLength: 2)
-            if item.isSnippet {
-                Image(systemName: "text.badge.plus")
-                    .font(.system(size: 10.5))
-                    .foregroundStyle(.secondary)
-            }
-            if item.hasShortLink {
-                Image(systemName: "link")
-                    .font(.system(size: 10.5, weight: .bold))
-                    .foregroundStyle(Color.accentColor)
-            }
-            if item.isPinned {
-                Image(systemName: "pin.fill")
-                    .font(.system(size: 10.5))
-                    .foregroundStyle(.orange)
-            }
-        }
+        appIcons.accent(for: item.bundleId)
     }
 
     @ViewBuilder
@@ -135,13 +141,10 @@ struct ItemCard: View {
                     : ColorCardStyle.lightBackground
                 let foreground = ColorCardStyle.foreground(for: parsed, over: background)
                 let foregroundColor = Color(nsColor: ColorCardStyle.swiftUIColor(for: foreground))
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
+
+                Rectangle()
                     .fill(Color(nsColor: parsed.nsColor))
-                    .frame(
-                        maxWidth: .infinity,
-                        minHeight: compact ? 52 : 88,
-                        maxHeight: .infinity
-                    )
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .overlay(alignment: .bottomLeading) {
                         Text(text)
                             .font(.system(
@@ -159,18 +162,14 @@ struct ItemCard: View {
                                 LinearGradient(
                                     colors: [
                                         .clear,
-                                        (foreground == .black ? Color.white : Color.black).opacity(0.18)
+                                        (foreground == .black ? Color.white : Color.black)
+                                            .opacity(0.18)
                                     ],
                                     startPoint: .top,
                                     endPoint: .bottom
                                 )
                             )
                     }
-                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .strokeBorder(Color.black.opacity(0.12), lineWidth: 1)
-                    )
             } else {
                 fallbackPreview
             }
@@ -221,68 +220,10 @@ struct ItemCard: View {
             .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private var metadata: some View {
-        HStack(spacing: 3) {
-            if let icon = appIcons.icon(for: item.bundleId) {
-                Image(nsImage: icon)
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .frame(width: compact ? 11 : 13, height: compact ? 11 : 13)
-            } else {
-                Image(systemName: "app.fill")
-                    .font(.system(size: 9))
-                    .foregroundStyle(.secondary)
-            }
-            Text(item.sourceApp ?? "Unknown")
-                .font(.system(size: 11))
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-            Spacer(minLength: 1)
-            Text(relativeTime)
-                .font(.system(size: 11))
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-        }
-    }
-
     private var relativeTime: String {
         let formatter = RelativeDateTimeFormatter()
         formatter.unitsStyle = .abbreviated
         return formatter.localizedString(for: item.createdAt, relativeTo: Date())
-    }
-
-    private var actionRow: some View {
-        HStack(spacing: 2) {
-            actionButton("doc.on.doc", help: "Copy") { onCopy() }
-            actionButton("arrow.down.forward.square", help: "Paste (↩)") { onPaste() }
-            if !compact {
-                actionButton("textformat", help: "Paste as plain text (⇧↩)") { onPlainPaste() }
-            }
-            if item.kind == .url {
-                actionButton("link.badge.plus", help: "Shorten (⌥⇧S)") { onShorten() }
-            }
-            if item.kind != .color {
-                actionButton("qrcode", help: "QR code (⌥⇧Q)") { onQR() }
-            }
-            actionButton(item.isPinned ? "pin.slash" : "pin", help: item.isPinned ? "Unpin" : "Pin") {
-                onPin()
-            }
-            if !compact {
-                actionButton("rectangle.stack.badge.plus", help: "Add to paste stack") { onAddToStack() }
-            }
-        }
-        .padding(.top, 5)
-    }
-
-    private func actionButton(_ systemImage: String, help: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Image(systemName: systemImage)
-                .font(.system(size: 12.5, weight: .medium))
-                .frame(width: 22, height: 22)
-                .background(RoundedRectangle(cornerRadius: 5).fill(Color.primary.opacity(0.07)))
-        }
-        .buttonStyle(.plain)
-        .help(help)
     }
 
     @ViewBuilder

@@ -14,7 +14,7 @@ xcodebuild -scheme Clipshot test
 Latest verified result on this machine (Xcode 27.1, macOS 27.0.1):
 
 - `xcodebuild -scheme Clipshot build` → **BUILD SUCCEEDED**
-- `xcodebuild -scheme Clipshot test` → **TEST SUCCEEDED** — 140 tests, 0 failures
+- `xcodebuild -scheme Clipshot test` → **TEST SUCCEEDED** — 144 tests, 0 failures
   - `HistoryStoreTests` — 19
   - `PrivacyFilterTests` — 10
   - `BitlyBackendTests` — 17
@@ -27,6 +27,7 @@ Latest verified result on this machine (Xcode 27.1, macOS 27.0.1):
   - `AppIconAccentTests` — 8
   - `AppIconProviderCacheTests` — 2
   - `CardAccentStyleTests` — 6
+  - `CardChromeStyleTests` — 4
   - `ColorCardStyleTests` — 8
   - `SingleInstanceGuardTests` — 1
   - `ResizeHandleTests` — 2
@@ -48,6 +49,7 @@ Note: Xcode prints unrelated `CoreDevice` / `CoreSimulator` warnings on this mac
 | `OGImageParser` | `og:image` variants/`og:title`/`og:description`, `twitter:*` fallbacks (including an invalid OG image), `<title>` and `<meta name="description">` fallbacks, precedence, partial metadata, attribute order/case, relative URL resolution, entities, whitespace, malformed markup, non-HTTP rejection |
 | `OGImageCache` | full image + title/description record round-trip, metadata-only record, store/lookup, 7-day TTL, 24-hour negative cache, positive↔negative replacement, LRU eviction under a byte cap, clear |
 | `CardAccentStyle` | unselected border opacity ≥ 0.5 and wash ≥ 0.10, selected stronger than unselected, blue/yellow composited hue preserved over a dark card background |
+| `CardChromeStyle` | full/compact band, icon, footer, and button dimensions; selected/dark band tint strength; nil-accent fallback; 450 pt compact boundary |
 | `ColorCardStyle` | WCAG relative luminance → black/white foreground: white → black, black → white, #a51a15 → white, khaki/lightyellow → black, translucent blue composited over dark/light card backgrounds |
 
 ## 2. Manual checklist
@@ -154,13 +156,26 @@ Copy each value below, then open the timeline. Each color item's entire content 
 - [ ] Confirm there is no `SQLite error 10` / `PRAGMA query_only` disk-I/O message in Console during the search.
 - [ ] Do not replace or unlink `clipshot.sqlite`, `-wal`, or `-shm` while the app is running. If an external process does, Clipshot now closes and reopens the same file (no deletion/recreation) and surfaces a red error banner if reopening fails.
 
-### Source-app icon + accent
-> A timeline containing clips from only one app legitimately shows that app's accent on every card. For example, a Brave-only history is orange-red — this is not a generic red tint. Capture from at least two apps before judging per-app accents. `Docs/verify-accents-v2.png` is a diagnostic overlay render showing Safari/Finder blue borders and washes, Notes yellow, Xcode blue, Brave orange-red, and Terminal neutral, captured only after every accent had resolved.
+### Card chrome (Paste-style)
 
-- [ ] Copy text from at least 4 apps with distinct icons (Safari, Notes, Terminal, Preview) → each card shows the source app icon and a clearly visible tinted border plus a colored background wash.
-- [ ] Safari/Finder cards have a clearly blue border (~0.7 opacity) and wash; Notes has a clearly yellow border/wash; Terminal (gray/black icon) stays neutral.
-- [ ] Verify the selected card is still distinguishable: full-opacity accent border, thicker stroke, and a deeper wash than unselected cards.
-- [ ] Copy a color value → its card border and wash match the copied color, on top of any app accent.
+- [ ] Full-height overlay (460 pt): every card shows a 40 px source-app icon in a per-app tinted band at the top, the app name, and `TYPE · time`.
+- [ ] The bottom app-metadata row is gone; the footer is always visible with copy, paste, pin, and overflow icons.
+- [ ] Selecting another card does not shift the footer or content (no layout jump).
+- [ ] Color cards show the same per-app band above a full-bleed parsed-color swatch; the value text remains readable.
+- [ ] URL cards paint the raw URL first; the OG image/title/description enrich the card afterward.
+- [ ] Full layout at ≥450 pt; compact layout below 450 pt or with “Always use compact cards” enabled.
+- [ ] Light mode: Notes yellow and Terminal gray bands remain readable.
+- [ ] Copy, paste, pin, and every overflow action (plain paste, shorten for URL, QR, paste stack, edit/rename) work.
+- [ ] The right-click menu still exposes pinboards and destructive actions.
+- [ ] Reference capture: `Docs/verify-card-restyle.png`.
+
+### Source-app icon + accent
+> A timeline containing clips from only one app legitimately shows that app's accent on every card. For example, a Brave-only history is orange-red — this is not a generic red tint. Capture from at least two apps before judging per-app accents. `Docs/verify-card-restyle.png` shows the current band treatment; `Docs/verify-accents-v2.png` is the earlier wash-based diagnostic.
+
+- [ ] Copy text from at least 4 apps with distinct icons (Safari, Notes, Terminal, Preview) → each card shows a clearly visible tinted top band and matching border; the body stays neutral.
+- [ ] Safari/Finder cards have a clearly blue band/border; Notes has a clearly yellow band/border; Terminal (gray/black icon) stays neutral.
+- [ ] Verify the selected card is still distinguishable: stronger band tint, full-opacity accent border, and thicker stroke than unselected cards.
+- [ ] Copy a color value → its card body is the full-bleed parsed color with a readable value; the band and border use the source-app accent.
 - [ ] Quit and relaunch, open the timeline → icons and accents appear from cache without a visible delay.
 - [ ] Verify the cache version marker at `~/Library/Application Support/Clipshot/AppIcons/cache-version` reads `v2`; legacy `*.png`/`*.accent` entries from older builds are gone (one-time migration).
 - [ ] Remove/uninstall an app whose clipboard item is still in history (or use an item with an unknown bundle id) → a generic app icon is shown instead of a blank.
