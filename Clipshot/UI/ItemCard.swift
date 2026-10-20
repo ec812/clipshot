@@ -5,6 +5,7 @@ struct ItemCard: View {
     let item: ClipboardItem
     let isSelected: Bool
     let compact: Bool
+    @Environment(\.colorScheme) private var colorScheme
     @ObservedObject var appIcons: AppIconProvider
     @ObservedObject var clipImages: ClipImageStore
     let linkPreviews: LinkPreviewStore
@@ -33,7 +34,9 @@ struct ItemCard: View {
         VStack(alignment: .leading, spacing: 5) {
             header
             preview
-            Spacer(minLength: 0)
+            if item.kind != .color {
+                Spacer(minLength: 0)
+            }
             metadata
             if isSelected {
                 actionRow
@@ -125,19 +128,50 @@ struct ItemCard: View {
     private var preview: some View {
         switch item.kind {
         case .color:
-            VStack(alignment: .leading, spacing: 4) {
+            if let text = item.text, let parsed = ClipboardColorParser.parse(text) {
+                let background = colorScheme == .dark
+                    ? ColorCardStyle.darkBackground
+                    : ColorCardStyle.lightBackground
+                let foreground = ColorCardStyle.foreground(for: parsed, over: background)
+                let foregroundColor = Color(nsColor: ColorCardStyle.swiftUIColor(for: foreground))
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(colorValue ?? Color.gray.opacity(0.4))
-                    .frame(maxWidth: .infinity)
-                    .frame(height: compact ? 42 : 66)
+                    .fill(Color(nsColor: parsed.nsColor))
+                    .frame(
+                        maxWidth: .infinity,
+                        minHeight: compact ? 52 : 88,
+                        maxHeight: .infinity
+                    )
+                    .overlay(alignment: .bottomLeading) {
+                        Text(text)
+                            .font(.system(
+                                size: compact ? 9.5 : 11,
+                                weight: .semibold,
+                                design: .monospaced
+                            ))
+                            .foregroundStyle(foregroundColor)
+                            .lineLimit(2)
+                            .minimumScaleFactor(0.7)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 5)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(
+                                LinearGradient(
+                                    colors: [
+                                        .clear,
+                                        (foreground == .black ? Color.white : Color.black).opacity(0.18)
+                                    ],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                )
+                            )
+                    }
+                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                     .overlay(
                         RoundedRectangle(cornerRadius: 8, style: .continuous)
                             .strokeBorder(Color.black.opacity(0.12), lineWidth: 1)
                     )
-                Text(item.text ?? "")
-                    .font(.system(size: compact ? 9 : 10, design: .monospaced))
-                    .lineLimit(1)
-                    .foregroundStyle(.secondary)
+            } else {
+                fallbackPreview
             }
         case .url:
             VStack(alignment: .leading, spacing: 5) {
@@ -181,13 +215,6 @@ struct ItemCard: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .textSelection(.disabled)
         }
-    }
-
-    private var colorValue: Color? {
-        guard item.kind == .color, let text = item.text,
-              let parsed = ClipboardColorParser.parse(text)
-        else { return nil }
-        return Color(nsColor: parsed.nsColor)
     }
 
     private var fallbackPreview: some View {

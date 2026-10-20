@@ -14,8 +14,8 @@ xcodebuild -scheme Clipshot test
 Latest verified result on this machine (Xcode 27.1, macOS 27.0.1):
 
 - `xcodebuild -scheme Clipshot build` → **BUILD SUCCEEDED**
-- `xcodebuild -scheme Clipshot test` → **TEST SUCCEEDED** — 113 tests, 0 failures
-  - `HistoryStoreTests` — 13
+- `xcodebuild -scheme Clipshot test` → **TEST SUCCEEDED** — 122 tests, 0 failures
+  - `HistoryStoreTests` — 14
   - `PrivacyFilterTests` — 10
   - `BitlyBackendTests` — 17
   - `ShortenRulesEngineTests` — 10
@@ -27,6 +27,7 @@ Latest verified result on this machine (Xcode 27.1, macOS 27.0.1):
   - `AppIconAccentTests` — 8
   - `AppIconProviderCacheTests` — 2
   - `CardAccentStyleTests` — 6
+  - `ColorCardStyleTests` — 8
   - `SingleInstanceGuardTests` — 1
   - `ResizeHandleTests` — 2
 
@@ -47,6 +48,7 @@ Note: Xcode prints unrelated `CoreDevice` / `CoreSimulator` warnings on this mac
 | `OGImageParser` | `og:image`, `twitter:image` fallback, attribute order/case, relative URL resolution, entities, malformed markup, non-HTTP rejection |
 | `OGImageCache` | store/lookup, 7-day TTL, 24-hour negative cache, image↔negative replacement, LRU eviction under a byte cap, clear |
 | `CardAccentStyle` | unselected border opacity ≥ 0.5 and wash ≥ 0.10, selected stronger than unselected, blue/yellow composited hue preserved over a dark card background |
+| `ColorCardStyle` | WCAG relative luminance → black/white foreground: white → black, black → white, #a51a15 → white, khaki/lightyellow → black, translucent blue composited over dark/light card backgrounds |
 
 ## 2. Manual checklist
 
@@ -98,7 +100,7 @@ Complete every item on a real Mac (simulators do not exercise menu-bar, full-scr
 - [ ] Press `⌫` with the search field not focused (click a card first) → the selected item is deleted.
 
 ### Color previews
-Copy each value below, then open the timeline. Every one must render a large rounded swatch plus the original text as a label. Shorten and QR must be absent from the action row and context menu for these items.
+Copy each value below, then open the timeline. Each color item's entire content area must be filled with the parsed color (not just a small swatch), with the exact original string overlaid at the bottom. Foreground text must be black or white chosen by WCAG relative luminance; Shorten and QR must be absent. `Docs/verify-color-cards.png` shows `#a51a15`, `rgba(30,144,255,0.6)`, `hsl(120,60%,50%)`, and `#f5deb3` as full fills with legible values.
 
 | Input | Expected |
 | --- | --- |
@@ -114,14 +116,16 @@ Copy each value below, then open the timeline. Every one must render a large rou
 | `oklch(0.62796 0.25768 29.234)` | red |
 | `okchl(0.62796 0.25768 29.234)` | red (typo alias) |
 | `red` / `ReBeCcApUrPlE` | named CSS colors |
-| `transparent` | fully transparent swatch |
+| `transparent` | fully transparent color fill |
 | `hello #ff0000` | **text**, not a color |
 
 - [ ] Copy `#3498db`, paste into TextEdit with `↩` → the original text `#3498db` is pasted.
 - [ ] Paste the same color into a color-aware app (e.g. a design tool color field) → the `NSColor` representation is accepted.
-- [ ] Copy `#ff0000 extra text` → stays a text item (no swatch).
+- [ ] Search for `a51a15` / `f5deb3` → the color items are found (the original text remains the indexed/preview text).
+- [ ] Resize to compact mode → the color block is shorter but still a solid fill with legible values.
+- [ ] Copy `#ff0000 extra text` → stays a text item (no fill).
 - [ ] Press `⇧↩` on a color item → plain text of the original value is pasted.
-- [ ] Confirm the card border uses the color itself rather than the source-app accent.
+- [ ] Confirm the content fill (not just the card border/background) is entirely the parsed color, and the source-app icon remains visible.
 
 ### Link previews (OG images)
 - [ ] Copy a real article URL whose page has `<meta property="og:image">` (e.g. a news/ blog post) → while loading the card shows the placeholder, then the image (aspect-fill, rounded).

@@ -357,6 +357,7 @@ enum ClipboardColorParser {
         "darkred": "#8b0000",
         "lightblue": "#add8e6",
         "lightgreen": "#90ee90",
+        "lightyellow": "#ffffe0",
         "lightgray": "#d3d3d3",
         "lightgrey": "#d3d3d3",
         "deepskyblue": "#00bfff",

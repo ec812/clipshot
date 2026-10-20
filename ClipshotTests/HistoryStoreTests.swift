@@ -207,6 +207,15 @@ final class HistoryStoreTests: XCTestCase {
         XCTAssertEqual(FTSQuery.make(from: "\"quoted\""), "\"quoted\"*")
     }
 
+    func testColorItemTextRemainsSearchable() throws {
+        _ = try store.insert(kind: .color, text: "#a51a15", hash: "color-search")
+
+        let results = try store.search("a51a15")
+        XCTAssertEqual(results.count, 1)
+        XCTAssertEqual(results.first?.kind, .color)
+        XCTAssertEqual(results.first?.text, "#a51a15")
+    }
+
     func testFileDatabaseUsesWALAndBusyTimeout() throws {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("ClipshotDBTests-\(UUID().uuidString)", isDirectory: true)

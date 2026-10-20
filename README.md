@@ -21,8 +21,8 @@ A native macOS menu-bar clipboard manager with link shortening built in — a Cl
 - Captures text, links, rich text, images (PNG on disk), files and colors
 - Bottom-bar `NSPanel` timeline on the display under the pointer, over full-screen apps, resizable, compact mode
 - Full-text search (FTS5) and filters by type, source app, pinned and pinboard
-- Keyboard-first: `←/→`, `↩`, `⇧↩`, `⌘1–9`, `⌘N/E/R/P/K`, `␣` Quick Look, `⌫`
-- Rich previews: parsed color swatches (hex/rgb/hsl/oklch/oklab/named), Open Graph thumbnails for links, source-app icons and per-app accent-tinted cards
+- Keyboard-first: `←/→`, `↩`, `⇧↩`, `⌘1–9`, `⌘N/E/R/P/K`, `⌘Y` Quick Look, `⌘⌫` delete
+- Rich previews: full-content color fills with readable value overlays (hex/rgb/hsl/oklch/oklab/named), Open Graph thumbnails for links, source-app icons and per-app accent-tinted cards
 - Plain-text paste, paste stack, Quick Look, pinboards, snippets, edit/rename, retention
 - Privacy: bundle-id ignore list (password managers by default), transient/concealed pasteboard markers, timed pause (also suspends OG fetches)
 
