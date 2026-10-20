@@ -63,9 +63,13 @@ struct TimelineView: View {
         }
         .onAppear {
             appState.reload()
+            appState.setSearchFieldFocused(true)
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
                 searchFocused = true
             }
+        }
+        .onChange(of: searchFocused) { _, focused in
+            appState.setSearchFieldFocused(focused)
         }
         .onChange(of: appState.searchText) { _, _ in
             appState.scheduleReload()
@@ -373,7 +377,7 @@ struct TimelineView: View {
 
     private var footer: some View {
         HStack(spacing: 12) {
-            hint("← →", "navigate")
+            hint("← →", "caret / cards")
             hint("↩", "paste")
             hint("⇧↩", "plain")
             hint("⌥⇧S", "shorten")

@@ -63,6 +63,7 @@ final class AppState: ObservableObject {
     @Published var credentialResult: ShortenerCredentialResult?
     @Published var showNewPinboardSheet = false
     @Published var pasteStackCount = 0
+    @Published private(set) var isSearchFieldFocused = false
 
     var isTesting: Bool
     private var startMonitoring: Bool
@@ -807,10 +808,18 @@ final class AppState: ObservableObject {
     func handleOverlayKey(_ event: NSEvent) -> Bool {
         let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
         let keyCode = Int(event.keyCode)
+        let editingSearch = isSearchFieldFocused || isTextInputFocused(event)
 
         if keyCode == kVK_Escape {
             overlayController.hide()
             return true
+        }
+
+        // While editing a non-empty query, arrows move the insertion point.
+        // With an empty query there is no caret to move, so they navigate cards.
+        if editingSearch, !searchText.isEmpty,
+           keyCode == kVK_LeftArrow || keyCode == kVK_RightArrow {
+            return false
         }
 
         if flags.contains(.command), let characters = event.charactersIgnoringModifiers,
@@ -874,13 +883,13 @@ final class AppState: ObservableObject {
             return true
         case kVK_Space:
             // While editing the search field, Space must type a space.
-            if isTextInputFocused(event) { return false }
+            if editingSearch { return false }
             if let item = selectedItem { quickLook.preview(item, dataStore: dataStore) }
             return true
         case kVK_Delete:
             // While editing the search field, Backspace must edit the query.
             // Use ⌘⌫ to delete a history item.
-            if isTextInputFocused(event) { return false }
+            if editingSearch { return false }
             if let item = selectedItem { delete(item) }
             return true
         default:
@@ -888,9 +897,17 @@ final class AppState: ObservableObject {
         }
     }
 
+    func setSearchFieldFocused(_ focused: Bool) {
+        isSearchFieldFocused = focused
+    }
+
     private func isTextInputFocused(_ event: NSEvent) -> Bool {
-        guard let responder = event.window?.firstResponder else { return false }
-        return responder is NSTextView || responder is NSTextField
+        let responder = event.window?.firstResponder ?? NSApp.keyWindow?.firstResponder
+        guard let responder else { return false }
+        if responder is NSTextView || responder is NSTextField || responder is NSText {
+            return true
+        }
+        return responder is NSTextInputClient
     }
 
     // MARK: - Toast

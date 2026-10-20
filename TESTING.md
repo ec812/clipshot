@@ -92,6 +92,7 @@ Complete every item on a real Mac (simulators do not exercise menu-bar, full-scr
 - [ ] Type in the search field → results narrow with FTS; clear the field → full history returns.
 - [ ] Use the type and source-app filter menus and the Pinned/pinboard chips.
 - [ ] Type a multi-word query in the search field → spaces are entered into the query; Backspace deletes query characters instead of history items.
+- [ ] With a non-empty query, press `←`/`→` → the text insertion point moves; it does not change the selected card. With an empty query, `←`/`→` navigate cards.
 - [ ] Press `⌘⌫` with a search query present → the selected history item is deleted.
 - [ ] Press `⌘Y` on a text item and an image item → Quick Look opens the preview.
 - [ ] Press `⌫` with the search field not focused (click a card first) → the selected item is deleted.
