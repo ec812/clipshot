@@ -14,11 +14,26 @@ enum CardChromeStyle {
     /// Inner content width available to an image thumbnail.
     static let thumbnailWidth: CGFloat = cardWidth - bodyHorizontalPadding * 2
 
-    /// Thumbnail height derived from the image's true aspect ratio at
-    /// `thumbnailWidth`. Deliberately uncapped: tall images make tall cards.
-    static func thumbnailHeight(for imageSize: CGSize) -> CGFloat {
-        guard imageSize.width > 0, imageSize.height > 0 else { return 0 }
-        return thumbnailWidth * imageSize.height / imageSize.width
+    /// Height bounds for the thumbnail box. Landscape images fill the width
+    /// when the width bound binds and never exceed these heights; portraits
+    /// are capped at this height and derive their width from the aspect ratio.
+    /// At 1:1 the height cap wins.
+    static let thumbnailMaxHeight: CGFloat = 220
+    static let compactThumbnailMaxHeight: CGFloat = 200
+
+    /// Contain the image inside `thumbnailWidth × maxHeight`, preserving its
+    /// aspect ratio. Landscape images fill the width; portraits are capped.
+    static func thumbnailSize(for imageSize: CGSize, compact: Bool) -> CGSize {
+        guard imageSize.width > 0, imageSize.height > 0 else { return .zero }
+        let maxHeight = compact ? compactThumbnailMaxHeight : thumbnailMaxHeight
+        let scale = min(
+            thumbnailWidth / imageSize.width,
+            maxHeight / imageSize.height
+        )
+        return CGSize(
+            width: imageSize.width * scale,
+            height: imageSize.height * scale
+        )
     }
 
     static func isCompact(overlayHeight: CGFloat, alwaysCompact: Bool) -> Bool {

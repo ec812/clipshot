@@ -239,11 +239,11 @@ struct ItemCard: View {
     }
 
     private func cardThumbnail(_ image: NSImage) -> some View {
-        Image(nsImage: image)
+        let size = CardChromeStyle.thumbnailSize(for: image.size, compact: compact)
+        return Image(nsImage: image)
             .resizable()
             .aspectRatio(contentMode: .fit)
-            .frame(maxWidth: .infinity)
-            .frame(height: CardChromeStyle.thumbnailHeight(for: image.size))
+            .frame(width: size.width, height: size.height)
             .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
     }
 
