@@ -95,7 +95,7 @@ struct ItemCard: View {
         .help(item.displayText)
         .onAppear {
             appIcons.ensureLoaded(bundleId: item.bundleId)
-            clipImages.ensureLoaded(path: item.dataPath)
+            clipImages.ensureLoaded(path: item.previewImagePath)
             if displayKind == .text {
                 codeHighlight.ensureProcessed(item)
             }
@@ -195,27 +195,25 @@ struct ItemCard: View {
                 fallbackText: item.previewText
             )
         case .image:
-            if let image = clipImages.image(forPath: item.dataPath) {
-                Image(nsImage: image)
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: compact ? 46 : 78)
-                    .clipped()
-                    .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+            if let image = clipImages.image(forPath: item.previewImagePath) {
+                cardThumbnail(image)
             } else {
                 fallbackPreview
             }
         case .file:
-            HStack(spacing: 5) {
-                Image(systemName: "doc.fill")
-                    .font(.system(size: compact ? 21 : 26))
-                    .foregroundStyle(.secondary)
-                Text(item.title ?? item.previewText)
-                    .font(.system(size: compact ? 13 : 14.5))
-                    .lineLimit(compact ? 3 : 4)
+            if let image = clipImages.image(forPath: item.previewImagePath) {
+                cardThumbnail(image)
+            } else {
+                HStack(spacing: 5) {
+                    Image(systemName: "doc.fill")
+                        .font(.system(size: compact ? 21 : 26))
+                        .foregroundStyle(.secondary)
+                    Text(item.title ?? item.previewText)
+                        .font(.system(size: compact ? 13 : 14.5))
+                        .lineLimit(compact ? 3 : 4)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
         case .text:
             if let attributed = codeHighlight.attributedPreview(
                 for: item,
@@ -240,6 +238,16 @@ struct ItemCard: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .textSelection(.disabled)
         }
+    }
+
+    private func cardThumbnail(_ image: NSImage) -> some View {
+        Image(nsImage: image)
+            .resizable()
+            .aspectRatio(contentMode: .fill)
+            .frame(maxWidth: .infinity)
+            .frame(height: compact ? 46 : 78)
+            .clipped()
+            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
     }
 
     private var fallbackPreview: some View {

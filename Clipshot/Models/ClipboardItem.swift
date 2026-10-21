@@ -129,6 +129,39 @@ struct ClipboardItem: Identifiable, Equatable, Codable, FetchableRecord, Mutable
             return kind
         }
     }
+
+    /// Paste override used by the UI. Only a short-link substitution changes
+    /// the payload; every other item must let PasteEngine write its
+    /// kind-specific representation (file URL, PNG, RTF, NSColor).
+    func pasteTextOverride(preferShort: Bool) -> String? {
+        guard preferShort, let shortUrl, !shortUrl.isEmpty else { return nil }
+        return shortUrl
+    }
+
+    /// A local image file to render as the card thumbnail. `.image` rows use
+    /// their owned payload; copied image *files* keep `dataPath` nil (the
+    /// original file must never be deleted with history), so derive the
+    /// preview from the file URL text instead.
+    var previewImagePath: String? {
+        switch kind {
+        case .image:
+            return dataPath
+        case .file:
+            guard let text, !text.contains("\n") else { return nil }
+            let url: URL
+            if let parsed = URL(string: text), parsed.isFileURL {
+                url = parsed
+            } else if text.hasPrefix("/") || text.hasPrefix("~") {
+                url = URL(fileURLWithPath: (text as NSString).expandingTildeInPath)
+            } else {
+                return nil
+            }
+            guard ClipboardPayloadReader.isImageFileURL(url) else { return nil }
+            return url.path
+        default:
+            return nil
+        }
+    }
 }
 
 struct Pinboard: Identifiable, Equatable, Codable, FetchableRecord, MutablePersistableRecord, Sendable {

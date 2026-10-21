@@ -18,7 +18,7 @@ A native macOS menu-bar clipboard manager with link shortening built in — a Cl
 
 **Clipboard history**
 - 0.1 s `NSPasteboard.changeCount` polling with SHA-256 dedupe, own-write suppression, pause support
-- Captures text, links, rich text, images (PNG on disk), files and colors
+- Captures text, links, rich text, images (PNG on disk), files and colors; copied image files and image pathnames show a thumbnail while keeping file-paste semantics
 - Bottom-bar `NSPanel` timeline on the display under the pointer, over full-screen apps, resizable, compact mode
 - Full-text search (FTS5) and filters by type, source app, pinned and pinboard
 - Keyboard-first: `←/→`, `↩`, `⇧↩`, `⌘1–9`, `⌘N/E/R/P/K`, `⌘Y` Quick Look, `⌘⌫` delete

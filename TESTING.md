@@ -45,7 +45,8 @@ Note: Xcode prints unrelated `CoreDevice` / `CoreSimulator` warnings on this mac
 | --- | --- |
 | `HistoryStore` | insert, hash dedupe + timestamp bump, FTS5 prefix search, punctuation-safe queries, kind/bundle filters, retention (pinned kept), pinboards, short-link cache, rule ordering, edit/delete, WAL journal mode + 5 s busy timeout, file reopen persistence, migration idempotency, WAL-present reopen without recreation, I/O-error recovery on the same file, corrupt-WAL leaves the database file intact |
 | `PrivacyFilter` | ignore list, transient/auto-generated markers, concealment markers, pause expiry, resume, live ignore-list updates |
-| `ClipboardPayloadReader` | text/color/URL/file classification, URL capture path is synchronous and does not fetch previews, image payload persistence from a background-safe pasteboard snapshot |
+| `ClipboardPayloadReader` | text/color/URL/file classification, Finder image copies keep File kind, image pathname strings (existing image, missing file, non-image, directory, prose) classify correctly, URL capture path is synchronous and does not fetch previews, image payload persistence from a background-safe pasteboard snapshot |
+| `PasteEngine` | File items write `public.file-url`, image items write `public.png`, and the short-link text override applies only to URL short links |
 | `SingleInstanceGuard` | second lock acquisition fails, pid is written, lock can be reacquired after release |
 | `BitlyBackend` | POST `/shorten` (Bearer header, `long_url`, `domain`, `group_guid`, cache), POST `/bitlinks` custom-slug path, 401 `INVALID_ARG_ACCESS_TOKEN`, 404, `BRANDED_LINK_MONTHLY_LIMIT_EXCEEDED`, `DNS_CONFIGURATION_ERROR`, validation, 503, missing token, PATCH update, DELETE, GET `/user` verify, clicks parsing + cache update, capabilities |
 | `ShortenRulesEngine` | URL/host globs, source app matching, priority order, disabled rules, slug tokens and sanitization, determinism |
@@ -76,6 +77,9 @@ Complete every item on a real Mac (simulators do not exercise menu-bar, full-scr
 - [ ] Copy in **Terminal** → appears.
 - [ ] Copy a file in **Finder** → appears as a File card with the filename.
 - [ ] Copy an image in **Preview** (select region → ⌘C) → appears as an image card; preview renders.
+- [ ] Copy an image file in **Finder** (⌘C) → the File card shows the image thumbnail, not the filename or path. Paste into Finder (⌘V) still pastes the file.
+- [ ] Select an image file in Finder and use **⌥⌘C Copy as Pathname**, then open the timeline → the card shows the image thumbnail (File kind), not the path text.
+- [ ] Copy a path to a non-image file (e.g. a PDF) or prose containing a path → unchanged (text/File as before, no thumbnail).
 - [ ] Copy rich text from **Notes** → appears as Rich Text, plain text preview visible.
 - [ ] Copy a URL from any app → appears as a Link card; `⌥⇧S` becomes available.
 - [ ] Re-copy the exact same content → no duplicate card; the existing item moves to the front.

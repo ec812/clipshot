@@ -391,10 +391,7 @@ final class AppState: ObservableObject {
     }
 
     private func preferredText(for item: ClipboardItem, preferShort: Bool) -> String? {
-        if preferShort, let shortUrl = item.shortUrl, !shortUrl.isEmpty {
-            return shortUrl
-        }
-        return item.text ?? item.title
+        item.pasteTextOverride(preferShort: preferShort)
     }
 
     func copyToClipboard(_ string: String) {
