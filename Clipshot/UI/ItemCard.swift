@@ -245,6 +245,7 @@ struct ItemCard: View {
             .aspectRatio(contentMode: .fit)
             .frame(width: size.width, height: size.height)
             .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+            .frame(maxWidth: .infinity, alignment: .center)
     }
 
     private var fallbackPreview: some View {

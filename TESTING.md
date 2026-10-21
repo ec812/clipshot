@@ -78,7 +78,7 @@ Complete every item on a real Mac (simulators do not exercise menu-bar, full-scr
 - [ ] Copy a file in **Finder** → appears as a File card with the filename.
 - [ ] Copy an image in **Preview** (select region → ⌘C) → appears as an image card; preview renders.
 - [ ] Copy an image file in **Finder** (⌘C) → the File card shows the image thumbnail, not the filename or path. Paste into Finder (⌘V) still pastes the file.
-- [ ] Image thumbnails preserve aspect ratio without cropping: landscape images span the full inner width with auto height; portrait images are height-capped (220 pt normal / 200 pt compact) with auto width and leading alignment. Test wide, standard, tall and square images.
+- [ ] Image thumbnails preserve aspect ratio without cropping: landscape images span the full inner width with auto height; portrait images are height-capped (220 pt normal / 200 pt compact) with auto width and horizontally centered. Test wide, standard, tall and square images.
 - [ ] Select an image file in Finder and use **⌥⌘C Copy as Pathname**, then open the timeline → the card shows the image thumbnail (File kind), not the path text.
 - [ ] Copy a path to a non-image file (e.g. a PDF) or prose containing a path → unchanged (text/File as before, no thumbnail).
 - [ ] Copy rich text from **Notes** → appears as Rich Text, plain text preview visible.
