@@ -202,15 +202,15 @@ struct CardFooter: View {
 
     var body: some View {
         HStack(spacing: 5) {
-            iconButton("doc.on.doc", help: "Copy item", action: onCopy)
+            iconButton(.lucideCopy, help: "Copy item", action: onCopy)
             iconButton(
-                "doc.on.clipboard",
+                .system("doc.on.clipboard"),
                 help: "Paste item",
                 primary: true,
                 action: onPaste
             )
             iconButton(
-                isPinned ? "pin.fill" : "pin",
+                .system(isPinned ? "pin.fill" : "pin"),
                 help: isPinned ? "Unpin item" : "Pin item",
                 action: onPin
             )
@@ -293,13 +293,13 @@ struct CardFooter: View {
     }
 
     private func iconButton(
-        _ systemImage: String,
+        _ glyph: FooterGlyph,
         help: String,
         primary: Bool = false,
         action: @escaping () -> Void
     ) -> some View {
         FooterIconButton(
-            systemImage: systemImage,
+            glyph: glyph,
             help: help,
             primary: primary,
             size: buttonSize,
@@ -309,8 +309,13 @@ struct CardFooter: View {
     }
 }
 
+private enum FooterGlyph {
+    case system(String)
+    case lucideCopy
+}
+
 private struct FooterIconButton: View {
-    let systemImage: String
+    let glyph: FooterGlyph
     let help: String
     let primary: Bool
     let size: CGFloat
@@ -321,8 +326,7 @@ private struct FooterIconButton: View {
 
     var body: some View {
         Button(action: action) {
-            Image(systemName: systemImage)
-                .font(.system(size: glyphSize, weight: .medium))
+            glyphView
                 .frame(width: size, height: size)
                 .background(
                     RoundedRectangle(cornerRadius: 7)
@@ -339,6 +343,26 @@ private struct FooterIconButton: View {
         .accessibilityLabel(help)
     }
 
+    @ViewBuilder
+    private var glyphView: some View {
+        switch glyph {
+        case .system(let name):
+            Image(systemName: name)
+                .font(.system(size: glyphSize, weight: .medium))
+        case .lucideCopy:
+            LucideCopyShape()
+                .stroke(
+                    .foreground,
+                    style: StrokeStyle(
+                        lineWidth: glyphSize * 2 / 24,
+                        lineCap: .round,
+                        lineJoin: .round
+                    )
+                )
+                .frame(width: glyphSize, height: glyphSize)
+        }
+    }
+
     private var backgroundColor: Color {
         if primary {
             return Color.accentColor.opacity(isHovered ? 0.30 : 0.22)
@@ -350,5 +374,48 @@ private struct FooterIconButton: View {
         primary
             ? Color.accentColor.opacity(isHovered ? 0.65 : 0.45)
             : Color.clear
+    }
+}
+
+/// Lucide's stroke-style "copy" glyph on its 24x24 grid.
+private struct LucideCopyShape: Shape {
+    func path(in rect: CGRect) -> Path {
+        let scale = min(rect.width, rect.height) / 24
+        let origin = CGPoint(x: rect.midX - 12 * scale, y: rect.midY - 12 * scale)
+
+        func point(_ x: CGFloat, _ y: CGFloat) -> CGPoint {
+            CGPoint(x: origin.x + x * scale, y: origin.y + y * scale)
+        }
+
+        var path = Path()
+        path.addRoundedRect(
+            in: CGRect(
+                x: origin.x + 8 * scale,
+                y: origin.y + 8 * scale,
+                width: 14 * scale,
+                height: 14 * scale
+            ),
+            cornerSize: CGSize(width: 2 * scale, height: 2 * scale)
+        )
+
+        path.move(to: point(4, 16))
+        path.addCurve(
+            to: point(2, 14),
+            control1: point(2.9, 16),
+            control2: point(2, 15.1)
+        )
+        path.addLine(to: point(2, 4))
+        path.addCurve(
+            to: point(4, 2),
+            control1: point(2, 2.9),
+            control2: point(2.9, 2)
+        )
+        path.addLine(to: point(14, 2))
+        path.addCurve(
+            to: point(16, 4),
+            control1: point(15.1, 2),
+            control2: point(16, 2.9)
+        )
+        return path
     }
 }
