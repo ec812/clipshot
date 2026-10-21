@@ -22,7 +22,7 @@ A native macOS menu-bar clipboard manager with link shortening built in — a Cl
 - Bottom-bar `NSPanel` timeline on the display under the pointer, over full-screen apps, resizable, compact mode
 - Full-text search (FTS5) and filters by type, source app, pinned and pinboard
 - Keyboard-first: `←/→`, `↩`, `⇧↩`, `⌘1–9`, `⌘N/E/R/P/K`, `⌘Y` Quick Look, `⌘⌫` delete
-- Rich previews: full-content color fills with readable value overlays (hex/rgb/hsl/oklch/oklab/named), Open Graph images with title and description for links (the raw URL paints immediately; previews enrich asynchronously), source-app icons and per-app accent-tinted cards
+- Rich previews: full-content color fills with readable value overlays (hex with or without `#`, rgb/rgba, hsl/hsla, cmyk/cmyka, oklch/oklab, named), Open Graph images with title and description for links (the raw URL paints immediately; previews enrich asynchronously), source-app icons and per-app accent-tinted cards
 - Code-aware previews: code-like text is detected lazily and syntax-highlighted in the card (Swift, JS/TS, Python, JSON, shell, SQL, HTML, CSS, C-family); prose stays plain, with a per-item **Highlight as Code** / **Show as Plain Text** override
 - New captures are selected and scrolled into view immediately when the timeline is open
 - Plain-text paste, paste stack, Quick Look, pinboards, snippets, edit/rename, retention

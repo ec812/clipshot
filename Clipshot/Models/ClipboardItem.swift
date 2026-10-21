@@ -116,6 +116,19 @@ struct ClipboardItem: Identifiable, Equatable, Codable, FetchableRecord, Mutable
         guard let shortUrl else { return false }
         return !shortUrl.isEmpty
     }
+
+    /// The kind to render. Color values captured before the reader checked the
+    /// string before the RTF flavor were persisted as `.text` or `.rtf`;
+    /// resolving them here fixes existing history without a DB migration.
+    var displayKind: ClipboardItemKind {
+        switch kind {
+        case .text, .rtf:
+            guard let text, ClipboardColorParser.parse(text) != nil else { return kind }
+            return .color
+        default:
+            return kind
+        }
+    }
 }
 
 struct Pinboard: Identifiable, Equatable, Codable, FetchableRecord, MutablePersistableRecord, Sendable {

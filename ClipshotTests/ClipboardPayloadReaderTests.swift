@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import XCTest
 @testable import Clipshot
@@ -38,10 +39,76 @@ final class ClipboardPayloadReaderTests: XCTestCase {
         )
     }
 
+    private func rtfData(for string: String) throws -> Data {
+        let attributed = NSAttributedString(string: string)
+        return try attributed.data(
+            from: NSRange(location: 0, length: attributed.length),
+            documentAttributes: [.documentType: NSAttributedString.DocumentType.rtf]
+        )
+    }
+
+    private func archivedColor(red: CGFloat, green: CGFloat, blue: CGFloat) throws -> Data {
+        try NSKeyedArchiver.archivedData(
+            withRootObject: NSColor(srgbRed: red, green: green, blue: blue, alpha: 1),
+            requiringSecureCoding: false
+        )
+    }
+
     func testTextString() {
         let payload = ClipboardPayloadReader.process(snapshot(string: "hello world"), dataStore: dataStore)
         XCTAssertEqual(payload?.kind, .text)
         XCTAssertEqual(payload?.text, "hello world")
+    }
+
+    /// Rich sources (browsers, design tools, devtools) attach an RTF flavor to
+    /// copied color text. The color classification must win over RTF.
+    func testColorStringWithRTFFlavorIsClassifiedAsColor() throws {
+        let payload = ClipboardPayloadReader.process(
+            snapshot(rtfData: try rtfData(for: "#ff0000"), string: "#ff0000"),
+            dataStore: dataStore
+        )
+        XCTAssertEqual(payload?.kind, .color)
+        XCTAssertEqual(payload?.text, "#ff0000")
+    }
+
+    func testColorStringWithRTFAndColorDataIsClassifiedAsColor() throws {
+        let payload = ClipboardPayloadReader.process(
+            snapshot(
+                rtfData: try rtfData(for: "rgba(255, 0, 0, 0.5)"),
+                colorData: try archivedColor(red: 1, green: 0, blue: 0),
+                string: "rgba(255, 0, 0, 0.5)"
+            ),
+            dataStore: dataStore
+        )
+        XCTAssertEqual(payload?.kind, .color)
+        XCTAssertEqual(payload?.text, "#FF0000")
+    }
+
+    func testCMYKStringIsClassifiedAsColor() {
+        let payload = ClipboardPayloadReader.process(
+            snapshot(string: "cmyk(0,100,100,0)"),
+            dataStore: dataStore
+        )
+        XCTAssertEqual(payload?.kind, .color)
+        XCTAssertEqual(payload?.text, "cmyk(0,100,100,0)")
+    }
+
+    func testHashlessHexStringIsClassifiedAsColor() {
+        let payload = ClipboardPayloadReader.process(
+            snapshot(string: "FF5733"),
+            dataStore: dataStore
+        )
+        XCTAssertEqual(payload?.kind, .color)
+        XCTAssertEqual(payload?.text, "FF5733")
+    }
+
+    func testGenuineRichTextRemainsRTF() throws {
+        let payload = ClipboardPayloadReader.process(
+            snapshot(rtfData: try rtfData(for: "hello rich text"), string: "hello rich text"),
+            dataStore: dataStore
+        )
+        XCTAssertEqual(payload?.kind, .rtf)
+        XCTAssertEqual(payload?.text, "hello rich text")
     }
 
     func testColorStringIsClassifiedAsColor() {

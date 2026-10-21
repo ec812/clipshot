@@ -58,6 +58,9 @@ enum ClipboardColorParser {
         if let hex = namedHex[lower] {
             return parseHex(hex)
         }
+        if let color = parseHashlessHex(lower) {
+            return color
+        }
         return nil
     }
 
@@ -108,6 +111,18 @@ enum ClipboardColorParser {
         }
     }
 
+    /// Bare six/eight-digit hex as copied by design tools (e.g. `FF5733`).
+    /// Requiring at least one a–f letter and one digit keeps timestamps
+    /// (`20240101`) and ordinary words (`deadbeef`, `facade`) as text.
+    private static func parseHashlessHex(_ value: String) -> ParsedColor? {
+        guard value.count == 6 || value.count == 8 else { return nil }
+        guard value.allSatisfy(\.isHexDigit) else { return nil }
+        guard value.contains(where: \.isLetter),
+              value.contains(where: \.isNumber)
+        else { return nil }
+        return parseHex("#" + value)
+    }
+
     // MARK: - Functional notation
 
     private static func parseFunction(_ value: String) -> ParsedColor? {
@@ -118,7 +133,22 @@ enum ClipboardColorParser {
 
         let name = String(value[nameRange])
         let body = String(value[bodyRange])
-        guard let (tokens, alphaToken) = splitComponents(body) else { return nil }
+
+        let baseCounts: ClosedRange<Int>
+        switch name {
+        case "rgb", "rgba", "hsl", "hsla", "oklab":
+            baseCounts = 3...3
+        case "oklch", "okchl":
+            baseCounts = 2...3
+        case "cmyk", "cmyka":
+            baseCounts = 4...4
+        default:
+            return nil
+        }
+
+        guard let (tokens, alphaToken) = splitComponents(body, baseCounts: baseCounts) else {
+            return nil
+        }
 
         switch name {
         case "rgb", "rgba":
@@ -129,6 +159,8 @@ enum ClipboardColorParser {
             return parseOKLCH(tokens: tokens, alphaToken: alphaToken)
         case "oklab":
             return parseOKLab(tokens: tokens, alphaToken: alphaToken)
+        case "cmyk", "cmyka":
+            return parseCMYK(tokens: tokens, alphaToken: alphaToken)
         default:
             return nil
         }
@@ -136,35 +168,35 @@ enum ClipboardColorParser {
 
     private static let functionRegex: NSRegularExpression = {
         // The inner body excludes parentheses so nested functions are rejected.
-        try! NSRegularExpression(pattern: #"^(rgba?|hsla?|oklch|okchl|oklab)\s*\(([^()]*)\)$"#, options: [.caseInsensitive])
+        try! NSRegularExpression(pattern: #"^(rgba?|hsla?|oklch|okchl|oklab|cmyka?)\s*\(([^()]*)\)$"#, options: [.caseInsensitive])
     }()
 
-    /// Splits `a, b, c / alpha` or `a b c` into three components plus optional alpha.
-    private static func splitComponents(_ body: String) -> (tokens: [String], alpha: String?)? {
+    /// Splits `a, b, c / alpha` or `a b c` into the base components plus an
+    /// optional alpha token. `baseCounts` allows oklch's optional hue.
+    private static func splitComponents(
+        _ body: String,
+        baseCounts: ClosedRange<Int>
+    ) -> (tokens: [String], alpha: String?)? {
         var normalized = body.replacingOccurrences(of: ",", with: " ")
         normalized = normalized.replacingOccurrences(of: "/", with: " / ")
         var tokens = normalized.split(whereSeparator: \.isWhitespace).map(String.init)
         guard !tokens.isEmpty else { return nil }
 
-        var alpha: String?
         if let slashIndex = tokens.firstIndex(of: "/") {
-            guard slashIndex == tokens.count - 2, slashIndex == 3 else { return nil }
-            alpha = tokens.last
+            guard slashIndex == tokens.count - 2 else { return nil }
+            let alpha = tokens.removeLast()
             tokens.removeLast()
-            tokens.removeLast()
+            guard baseCounts.contains(tokens.count) else { return nil }
+            return (tokens, alpha)
         }
 
-        if alpha == nil {
-            if tokens.count == 4 {
-                alpha = tokens[3]
-                tokens.removeLast()
-            } else if tokens.count < 2 {
-                return nil
-            }
-        } else if tokens.count != 3 {
-            return nil
+        guard baseCounts.contains(tokens.count)
+            || baseCounts.contains(tokens.count - 1)
+        else { return nil }
+        if baseCounts.contains(tokens.count) {
+            return (tokens, nil)
         }
-
+        let alpha = tokens.removeLast()
         return (tokens, alpha)
     }
 
@@ -220,6 +252,35 @@ enum ClipboardColorParser {
         }
 
         return ParsedColor(red: r1 + m, green: g1 + m, blue: b1 + m, alpha: alpha)
+    }
+
+    /// `cmyk(c, m, y, k)` / `cmyka(c, m, y, k, a)`.
+    ///
+    /// Components use the 0–100 scale: a bare number is a percentage value
+    /// (so `cmyk(0, 100, 100, 0)` is red), and a trailing `%` is equivalent.
+    private static func parseCMYK(tokens: [String], alphaToken: String?) -> ParsedColor? {
+        guard tokens.count == 4 else { return nil }
+
+        func component(_ token: String) -> Double? {
+            guard let parsed = numeric(token), (0...100).contains(parsed.value) else {
+                return nil
+            }
+            return parsed.value / 100
+        }
+
+        guard let c = component(tokens[0]),
+              let m = component(tokens[1]),
+              let y = component(tokens[2]),
+              let k = component(tokens[3]),
+              let alpha = parseAlpha(alphaToken)
+        else { return nil }
+
+        return ParsedColor(
+            red: (1 - c) * (1 - k),
+            green: (1 - m) * (1 - k),
+            blue: (1 - y) * (1 - k),
+            alpha: alpha
+        )
     }
 
     private static func parseOKLCH(tokens: [String], alphaToken: String?) -> ParsedColor? {

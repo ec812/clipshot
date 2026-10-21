@@ -49,4 +49,21 @@ final class ColorCardStyleTests: XCTestCase {
         // ~0.15 relative luminance: below the crossover.
         XCTAssertEqual(foreground("#6e6e6e"), .white)
     }
+
+    func testLegacyTextAndRTFColorItemsResolveToColorForDisplay() {
+        let text = ClipboardItem(kind: .text, text: "#ff0000", hash: "text-color")
+        XCTAssertEqual(text.displayKind, .color)
+
+        let rich = ClipboardItem(kind: .rtf, text: "rgba(30,144,255,0.6)", hash: "rtf-color")
+        XCTAssertEqual(rich.displayKind, .color)
+
+        let prose = ClipboardItem(kind: .text, text: "hello #ff0000", hash: "prose")
+        XCTAssertEqual(prose.displayKind, .text)
+
+        let code = ClipboardItem(kind: .text, text: "let value = 1", hash: "code")
+        XCTAssertEqual(code.displayKind, .text)
+
+        let url = ClipboardItem(kind: .url, text: "https://example.com", hash: "url")
+        XCTAssertEqual(url.displayKind, .url)
+    }
 }

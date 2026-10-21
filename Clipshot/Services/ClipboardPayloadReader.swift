@@ -84,6 +84,33 @@ enum ClipboardPayloadReader {
             )
         }
 
+        // Colors: an explicit NSColor pasteboard representation is authoritative.
+        if let colorData = snapshot.colorData,
+           let color = try? NSKeyedUnarchiver.unarchivedObject(ofClass: NSColor.self, from: colorData),
+           let hex = hexString(from: color) {
+            return CapturedPayload(
+                kind: .color,
+                text: hex,
+                title: "Color \(hex)",
+                dataPath: nil,
+                hash: hash(kind: .color, strings: [hex])
+            )
+        }
+
+        // A plain string that is entirely one color wins over an accompanying
+        // RTF flavor. Rich sources (browsers, devtools, design tools) attach RTF
+        // to copied color text; checking RTF first classified those as .rtf and
+        // rendered them as plain text instead of color cards.
+        if let string = snapshot.string, ClipboardColorParser.parse(string) != nil {
+            return CapturedPayload(
+                kind: .color,
+                text: string,
+                title: nil,
+                dataPath: nil,
+                hash: hash(kind: .color, strings: [string])
+            )
+        }
+
         // Rich text, with the plain-text representation kept for search/paste.
         if let rtf = snapshot.rtfData {
             let plain = NSAttributedString(rtf: rtf, documentAttributes: nil)?.string ?? snapshot.string
@@ -98,28 +125,8 @@ enum ClipboardPayloadReader {
             )
         }
 
-        // Colors (e.g. copied from color pickers).
-        if let colorData = snapshot.colorData,
-           let color = try? NSKeyedUnarchiver.unarchivedObject(ofClass: NSColor.self, from: colorData),
-           let hex = hexString(from: color) {
-            return CapturedPayload(
-                kind: .color,
-                text: hex,
-                title: "Color \(hex)",
-                dataPath: nil,
-                hash: hash(kind: .color, strings: [hex])
-            )
-        }
-
         if let string = snapshot.string, !string.isEmpty {
-            let kind: ClipboardItemKind
-            if ClipboardColorParser.parse(string) != nil {
-                kind = .color
-            } else if detectURL(in: string) != nil {
-                kind = .url
-            } else {
-                kind = .text
-            }
+            let kind: ClipboardItemKind = detectURL(in: string) != nil ? .url : .text
             return CapturedPayload(
                 kind: kind,
                 text: string,

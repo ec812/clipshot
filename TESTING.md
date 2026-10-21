@@ -132,12 +132,17 @@ Copy each value below, then open the timeline. Each color item's entire content 
 | `rgba(255, 0, 0, 0.25)` | translucent red |
 | `hsl(120, 100%, 50%)` | green |
 | `hsla(240, 100%, 50%, 0.25)` | translucent blue |
+| `cmyk(0, 100, 100, 0)` | red (CMYK components use the 0–100 scale) |
+| `cmyka(0, 100, 100, 0, 0.5)` | translucent red |
+| `FF5733` | orange (bare six-digit hex; must mix a hex letter and a digit) |
 | `oklch(0.62796 0.25768 29.234)` | red |
 | `okchl(0.62796 0.25768 29.234)` | red (typo alias) |
 | `red` / `ReBeCcApUrPlE` | named CSS colors |
 | `transparent` | fully transparent color fill |
 | `hello #ff0000` | **text**, not a color |
 
+- [ ] Copy a color value from a rich source that also offers an RTF flavor (Safari selection, browser devtools, a design tool) → still a color card; the RTF flavor must not win.
+- [ ] Copy `20240101`, `123456`, `deadbeef` or `facade` → stays a text item (bare hex must mix a hex letter and a digit).
 - [ ] Copy `#3498db`, paste into TextEdit with `↩` → the original text `#3498db` is pasted.
 - [ ] Paste the same color into a color-aware app (e.g. a design tool color field) → the `NSColor` representation is accepted.
 - [ ] Search for `a51a15` / `f5deb3` → the color items are found (the original text remains the indexed/preview text).

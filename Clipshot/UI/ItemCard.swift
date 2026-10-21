@@ -37,7 +37,7 @@ struct ItemCard: View {
                 CardBand(
                     icon: appIcons.icon(for: item.bundleId),
                     sourceApp: item.sourceApp ?? "Unknown",
-                    kind: item.kind,
+                    kind: displayKind,
                     relativeTime: relativeTime,
                     accent: appIcons.accent(for: item.bundleId),
                     isSelected: isSelected,
@@ -50,11 +50,11 @@ struct ItemCard: View {
                 preview
                     .padding(
                         .horizontal,
-                        item.kind == .color ? 0 : CardChromeStyle.bodyHorizontalPadding
+                        displayKind == .color ? 0 : CardChromeStyle.bodyHorizontalPadding
                     )
                     .padding(
                         .vertical,
-                        item.kind == .color ? 0 : CardChromeStyle.bodyVerticalPadding
+                        displayKind == .color ? 0 : CardChromeStyle.bodyVerticalPadding
                     )
                     .frame(
                         maxWidth: .infinity,
@@ -67,7 +67,7 @@ struct ItemCard: View {
             .onTapGesture { onSelect() }
 
             CardFooter(
-                kind: item.kind,
+                kind: displayKind,
                 isPinned: item.isPinned,
                 compact: compact,
                 onCopy: onCopy,
@@ -96,8 +96,16 @@ struct ItemCard: View {
         .onAppear {
             appIcons.ensureLoaded(bundleId: item.bundleId)
             clipImages.ensureLoaded(path: item.dataPath)
-            codeHighlight.ensureProcessed(item)
+            if displayKind == .text {
+                codeHighlight.ensureProcessed(item)
+            }
         }
+    }
+
+    /// Colors stored as `.text`/`.rtf` by older classifiers still need to
+    /// render as color cards.
+    private var displayKind: ClipboardItemKind {
+        item.displayKind
     }
 
     private var cardBackground: some View {
@@ -137,7 +145,7 @@ struct ItemCard: View {
 
     @ViewBuilder
     private var preview: some View {
-        switch item.kind {
+        switch displayKind {
         case .color:
             if let text = item.text, let parsed = ClipboardColorParser.parse(text) {
                 let background = colorScheme == .dark
@@ -252,7 +260,7 @@ struct ItemCard: View {
         Button("Paste") { onPaste() }
         Button("Paste as Plain Text") { onPlainPaste() }
         Button("Copy") { onCopy() }
-        if item.kind == .text {
+        if displayKind == .text {
             if codeHighlight.isCode(for: item) {
                 Button("Show as Plain Text") {
                     codeHighlight.setOverride(false, for: item)
@@ -264,7 +272,7 @@ struct ItemCard: View {
             }
         }
         Divider()
-        if item.kind == .url {
+        if displayKind == .url {
             Button("Shorten…") { onShorten() }
             if item.hasShortLink {
                 Button("Copy Short Link") {
@@ -275,9 +283,9 @@ struct ItemCard: View {
                 }
             }
         }
-        if item.kind != .color {
+        if displayKind != .color {
             Button("Show QR Code") { onQR() }
-            if item.hasShortLink, item.kind == .url {
+            if item.hasShortLink, displayKind == .url {
                 Button("Show QR Code for Original URL") { onQROriginal() }
             }
         }
@@ -296,7 +304,7 @@ struct ItemCard: View {
         }
         Button("Add to Paste Stack") { onAddToStack() }
         Divider()
-        if item.kind == .text || item.kind == .url {
+        if displayKind == .text || displayKind == .url {
             Button("Edit…") { onEdit() }
         }
         Button("Rename…") { onRename() }
