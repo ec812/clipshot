@@ -32,33 +32,38 @@ struct ItemCard: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            CardBand(
-                icon: appIcons.icon(for: item.bundleId),
-                sourceApp: item.sourceApp ?? "Unknown",
-                kind: item.kind,
-                relativeTime: relativeTime,
-                accent: appIcons.accent(for: item.bundleId),
-                isSelected: isSelected,
-                isPinned: item.isPinned,
-                hasShortLink: item.hasShortLink,
-                isSnippet: item.isSnippet,
-                compact: compact
-            )
+            VStack(spacing: 0) {
+                CardBand(
+                    icon: appIcons.icon(for: item.bundleId),
+                    sourceApp: item.sourceApp ?? "Unknown",
+                    kind: item.kind,
+                    relativeTime: relativeTime,
+                    accent: appIcons.accent(for: item.bundleId),
+                    isSelected: isSelected,
+                    isPinned: item.isPinned,
+                    hasShortLink: item.hasShortLink,
+                    isSnippet: item.isSnippet,
+                    compact: compact
+                )
 
-            preview
-                .padding(
-                    .horizontal,
-                    item.kind == .color ? 0 : CardChromeStyle.bodyHorizontalPadding
-                )
-                .padding(
-                    .vertical,
-                    item.kind == .color ? 0 : CardChromeStyle.bodyVerticalPadding
-                )
-                .frame(
-                    maxWidth: .infinity,
-                    maxHeight: .infinity,
-                    alignment: .topLeading
-                )
+                preview
+                    .padding(
+                        .horizontal,
+                        item.kind == .color ? 0 : CardChromeStyle.bodyHorizontalPadding
+                    )
+                    .padding(
+                        .vertical,
+                        item.kind == .color ? 0 : CardChromeStyle.bodyVerticalPadding
+                    )
+                    .frame(
+                        maxWidth: .infinity,
+                        maxHeight: .infinity,
+                        alignment: .topLeading
+                    )
+            }
+            .contentShape(Rectangle())
+            .onTapGesture(count: 2) { onPaste() }
+            .onTapGesture { onSelect() }
 
             CardFooter(
                 kind: item.kind,
@@ -85,9 +90,6 @@ struct ItemCard: View {
             )
         )
         .overlay(cardBorder)
-        .contentShape(Rectangle())
-        .onTapGesture(count: 2) { onPaste() }
-        .onTapGesture { onSelect() }
         .contextMenu { contextMenu }
         .help(item.displayText)
         .onAppear {

@@ -52,6 +52,7 @@
 		80C3C79DB5F40B3AA3130724 /* TimelineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1474C0CA43234B59D5A0708 /* TimelineView.swift */; };
 		A1B2C3D4E5F60718293A4C02 /* HorizontalScrollWheel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4C01 /* HorizontalScrollWheel.swift */; };
 		A1B2C3D4E5F60718293A4C04 /* HorizontalScrollWheelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4C03 /* HorizontalScrollWheelTests.swift */; };
+		A1B2C3D4E5F60718293A4C06 /* ItemCardClickTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4C05 /* ItemCardClickTests.swift */; };
 		2D96D85B345BB8E0E1A30DCF /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA67F574EDA0941671DDC700 /* SettingsView.swift */; };
 		10BC506F97B32BBBEEECDAAE /* AppIconAccentTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 183DAD0119070DA722A3C428 /* AppIconAccentTests.swift */; };
 		0AAC5192A5179E8704162B28 /* BitlyBackendTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF8CADCAF62CEABE04BF9314 /* BitlyBackendTests.swift */; };
@@ -124,6 +125,7 @@
 		C1474C0CA43234B59D5A0708 /* TimelineView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Clipshot/UI/TimelineView.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F60718293A4C01 /* HorizontalScrollWheel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Clipshot/UI/HorizontalScrollWheel.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F60718293A4C03 /* HorizontalScrollWheelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipshotTests/HorizontalScrollWheelTests.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F60718293A4C05 /* ItemCardClickTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipshotTests/ItemCardClickTests.swift; sourceTree = "<group>"; };
 		BA67F574EDA0941671DDC700 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Clipshot/UI/Settings/SettingsView.swift; sourceTree = "<group>"; };
 		183DAD0119070DA722A3C428 /* AppIconAccentTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipshotTests/AppIconAccentTests.swift; sourceTree = "<group>"; };
 		BF8CADCAF62CEABE04BF9314 /* BitlyBackendTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipshotTests/BitlyBackendTests.swift; sourceTree = "<group>"; };
@@ -239,6 +241,7 @@
 				7FC774F68F71CD5CFE7FAEA7 /* ShortenRulesEngineTests.swift */,
 				0E70FE57C2DED784E40B9ACC /* SingleInstanceGuardTests.swift */,
 				A1B2C3D4E5F60718293A4C03 /* HorizontalScrollWheelTests.swift */,
+				A1B2C3D4E5F60718293A4C05 /* ItemCardClickTests.swift */,
 			);
 			name = ClipshotTests;
 			sourceTree = "<group>";
@@ -424,6 +427,7 @@
 				653BA1AAB4727C379CD05DB2 /* ShortenRulesEngineTests.swift in Sources */,
 				41F42F6E317397D68EE34E40 /* SingleInstanceGuardTests.swift in Sources */,
 				A1B2C3D4E5F60718293A4C04 /* HorizontalScrollWheelTests.swift in Sources */,
+				A1B2C3D4E5F60718293A4C06 /* ItemCardClickTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
