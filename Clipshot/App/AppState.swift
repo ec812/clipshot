@@ -156,7 +156,7 @@ final class AppState: ObservableObject {
 
         let store = self.store
         let retentionDays = settings.retentionDays
-        Task.detached(priority: .userInitiated) { [self] in
+        Task.detached(priority: .userInitiated) {
             do {
                 try store.migrateIfNeeded()
                 _ = try? store.applyRetention(days: retentionDays)
