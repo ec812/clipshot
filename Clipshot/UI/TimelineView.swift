@@ -334,6 +334,7 @@ struct TimelineView: View {
                             compact: isCompact,
                             appIcons: appState.appIcons,
                             clipImages: appState.clipImages,
+                            codeHighlight: appState.codeHighlight,
                             linkPreviews: appState.linkPreviews,
                             fetchLinkPreviews: appState.settings.fetchLinkPreviews,
                             isPaused: appState.isPaused,

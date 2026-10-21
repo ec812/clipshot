@@ -22,6 +22,7 @@ final class AppState: ObservableObject {
     let appIcons = AppIconProvider()
     let linkPreviews = LinkPreviewStore()
     let clipImages = ClipImageStore()
+    let codeHighlight = CodeHighlightStore()
 
     lazy var pasteEngine: PasteEngine = PasteEngine(
         noteOwnWrite: { [weak self] in self?.monitor.noteOwnWrite() }

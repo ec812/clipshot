@@ -23,6 +23,7 @@ A native macOS menu-bar clipboard manager with link shortening built in — a Cl
 - Full-text search (FTS5) and filters by type, source app, pinned and pinboard
 - Keyboard-first: `←/→`, `↩`, `⇧↩`, `⌘1–9`, `⌘N/E/R/P/K`, `⌘Y` Quick Look, `⌘⌫` delete
 - Rich previews: full-content color fills with readable value overlays (hex/rgb/hsl/oklch/oklab/named), Open Graph images with title and description for links (the raw URL paints immediately; previews enrich asynchronously), source-app icons and per-app accent-tinted cards
+- Code-aware previews: code-like text is detected lazily and syntax-highlighted in the card (Swift, JS/TS, Python, JSON, shell, SQL, HTML, CSS, C-family); prose stays plain, with a per-item **Highlight as Code** / **Show as Plain Text** override
 - New captures are selected and scrolled into view immediately when the timeline is open
 - Plain-text paste, paste stack, Quick Look, pinboards, snippets, edit/rename, retention
 - Privacy: bundle-id ignore list (password managers by default), transient/concealed pasteboard markers, timed pause (also suspends OG fetches)
@@ -76,6 +77,7 @@ Clipshot/
 ├── Services/
 │   ├── ClipboardMonitor.swift   changeCount polling, capture pipeline
 │   ├── ClipboardPayloadReader.swift  type sniffing + hashing
+│   ├── CodeDetector.swift       bounded code-language heuristic
 │   ├── ClipboardColorParser.swift   hex/rgb/hsl/oklch/oklab/named colors
 │   ├── HistoryStore.swift       GRDB migrations, FTS5, pinboards, rules, link cache
 │   ├── PrivacyFilter.swift      ignore list, markers, pause window
@@ -86,6 +88,7 @@ Clipshot/
 │   ├── OGImageCache.swift       disk TTL, metadata + image records, negative cache, LRU cap
 │   ├── OGImageLoader.swift      async page + image fetching (one page fetch for all metadata)
 │   ├── LinkPreviewStore.swift   in-flight dedupe + image/title/description state
+│   ├── CodeHighlightStore.swift lazy highlight cache + per-item override
 │   ├── ShortenerBackend.swift   protocol, capabilities, registry
 │   ├── BitlyClient.swift        Bitly v4 REST client and DTO mapping
 │   ├── BitlyBackend.swift       Bitly provider implementation
@@ -97,9 +100,10 @@ Clipshot/
 │   ├── LaunchAtLogin.swift      SMAppService
 │   └── AccessibilityPermission.swift
 └── UI/                          overlay panel, timeline, cards, settings, onboarding
+    └── CodeHighlighter.swift    tokenizer + syntax theme + attributed previews
 ```
 
-Tests live in `ClipshotTests/` (HistoryStore, PrivacyFilter, BitlyBackend via URLProtocol, ShortenRulesEngine, PasteStack, ClipboardColorParser, OGImageParser full metadata/OGImageCache records, AppIconAccent). Manual verification is documented in [TESTING.md](TESTING.md).
+Tests live in `ClipshotTests/` (HistoryStore, PrivacyFilter, BitlyBackend via URLProtocol, ShortenRulesEngine, PasteStack, ClipboardColorParser, OGImageParser full metadata/OGImageCache records, AppIconAccent, horizontal scroll, card clicks, code detection/highlighting/cache). Manual verification is documented in [TESTING.md](TESTING.md).
 
 ## Local data
 

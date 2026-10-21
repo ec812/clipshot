@@ -8,6 +8,7 @@ struct ItemCard: View {
     @Environment(\.colorScheme) private var colorScheme
     @ObservedObject var appIcons: AppIconProvider
     @ObservedObject var clipImages: ClipImageStore
+    @ObservedObject var codeHighlight: CodeHighlightStore
     let linkPreviews: LinkPreviewStore
     let fetchLinkPreviews: Bool
     let isPaused: Bool
@@ -95,6 +96,7 @@ struct ItemCard: View {
         .onAppear {
             appIcons.ensureLoaded(bundleId: item.bundleId)
             clipImages.ensureLoaded(path: item.dataPath)
+            codeHighlight.ensureProcessed(item)
         }
     }
 
@@ -206,6 +208,23 @@ struct ItemCard: View {
                     .lineLimit(compact ? 3 : 4)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+        case .text:
+            if let attributed = codeHighlight.attributedPreview(
+                for: item,
+                colorScheme: colorScheme
+            ) {
+                Text(attributed)
+                    .font(.system(size: compact ? 11.5 : 12.5, design: .monospaced))
+                    .lineLimit(compact ? 4 : 7)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .textSelection(.disabled)
+            } else {
+                Text(item.previewText)
+                    .font(.system(size: compact ? 13 : 14.5))
+                    .lineLimit(compact ? 4 : 7)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .textSelection(.disabled)
+            }
         default:
             Text(item.previewText)
                 .font(.system(size: compact ? 13 : 14.5))
@@ -233,6 +252,17 @@ struct ItemCard: View {
         Button("Paste") { onPaste() }
         Button("Paste as Plain Text") { onPlainPaste() }
         Button("Copy") { onCopy() }
+        if item.kind == .text {
+            if codeHighlight.isCode(for: item) {
+                Button("Show as Plain Text") {
+                    codeHighlight.setOverride(false, for: item)
+                }
+            } else {
+                Button("Highlight as Code") {
+                    codeHighlight.setOverride(true, for: item)
+                }
+            }
+        }
         Divider()
         if item.kind == .url {
             Button("Shorten…") { onShorten() }

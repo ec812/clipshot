@@ -14,7 +14,7 @@ xcodebuild -scheme Clipshot test
 Latest verified result on this machine (Xcode 27.1, macOS 27.0.1):
 
 - `xcodebuild -scheme Clipshot build` → **BUILD SUCCEEDED**
-- `xcodebuild -scheme Clipshot test` → **TEST SUCCEEDED** — 144 tests, 0 failures
+- `xcodebuild -scheme Clipshot test` → **TEST SUCCEEDED** — 197 tests, 0 failures
   - `HistoryStoreTests` — 19
   - `PrivacyFilterTests` — 10
   - `BitlyBackendTests` — 17
@@ -31,6 +31,11 @@ Latest verified result on this machine (Xcode 27.1, macOS 27.0.1):
   - `ColorCardStyleTests` — 8
   - `SingleInstanceGuardTests` — 1
   - `ResizeHandleTests` — 2
+  - `HorizontalScrollWheelTests` — 6
+  - `ItemCardClickTests` — 2
+  - `CodeDetectorTests` — 24
+  - `CodeHighlighterTests` — 14
+  - `CodeHighlightStoreTests` — 7
 
 Note: Xcode prints unrelated `CoreDevice` / `CoreSimulator` warnings on this machine ("CoreSimulator is out of date"). They concern iOS device support and do not affect macOS builds or tests.
 
@@ -51,6 +56,9 @@ Note: Xcode prints unrelated `CoreDevice` / `CoreSimulator` warnings on this mac
 | `CardAccentStyle` | unselected border opacity ≥ 0.5 and wash ≥ 0.10, selected stronger than unselected, blue/yellow composited hue preserved over a dark card background |
 | `CardChromeStyle` | full/compact band, icon, footer, and button dimensions; selected/dark band tint strength; nil-accent fallback; 450 pt compact boundary |
 | `ColorCardStyle` | WCAG relative luminance → black/white foreground: white → black, black → white, #a51a15 → white, khaki/lightyellow → black, translucent blue composited over dark/light card backgrounds |
+| `CodeDetector` | Swift/JS/TS/Python/JSON/shell/SQL/HTML/CSS/C-family positives, indented and single-line snippets, prose/email/dashed-text/URL/date negatives, CRLF, bounded 16 KB prefix |
+| `CodeHighlighter` | keyword/type/string/number/comment token kinds, HTML tag/attribute tokens, CSS property names, unterminated strings, tab normalization, text preservation, 2,000-char/40-line bounds, light/dark theme colors |
+| `CodeHighlightStore` | one detection per hash, both color-scheme variants cached, one revision bump, in-flight dedupe, override precedence and persistence, forced generic fallback, non-text/empty items ignored |
 
 ## 2. Manual checklist
 
@@ -71,6 +79,15 @@ Complete every item on a real Mac (simulators do not exercise menu-bar, full-scr
 - [ ] Copy rich text from **Notes** → appears as Rich Text, plain text preview visible.
 - [ ] Copy a URL from any app → appears as a Link card; `⌥⇧S` becomes available.
 - [ ] Re-copy the exact same content → no duplicate card; the existing item moves to the front.
+
+### Code highlighting
+- [ ] Copy a multi-line **Swift** snippet from Xcode → the card preview is monospaced and syntax-highlighted, with line breaks and indentation preserved inside the 4/7-line limit.
+- [ ] Repeat for **JavaScript/TypeScript**, **Python**, **JSON**, a shell script, **SQL**, **HTML** and **CSS** → each is highlighted with the expected language colors.
+- [ ] Copy a prose paragraph, an email with punctuation, and dashed prose → no highlighting; the preview stays in the existing SF Pro style.
+- [ ] Right-click a highlighted code card → **Show as Plain Text**; right-click a prose card → **Highlight as Code**; relaunch and confirm both overrides stick.
+- [ ] Check compact and full overlay heights, and light and dark appearance.
+- [ ] Copying several items in a row remains responsive (detection runs lazily off-main, never on the capture hot path).
+- [ ] Reference capture: `Docs/verify-code-highlight.png`.
 
 ### Pasting — into at least 5 apps
 - [ ] Press `↩` on a text item with **TextEdit** focused → text is inserted at the cursor and the previous clipboard is restored.

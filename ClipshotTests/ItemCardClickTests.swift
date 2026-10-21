@@ -19,6 +19,7 @@ final class ItemCardClickTests: XCTestCase {
             compact: false,
             appIcons: AppIconProvider(),
             clipImages: ClipImageStore(),
+            codeHighlight: CodeHighlightStore(),
             linkPreviews: LinkPreviewStore(),
             fetchLinkPreviews: false,
             isPaused: false,
