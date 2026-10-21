@@ -63,6 +63,7 @@ final class AppState: ObservableObject {
     @Published var refreshingClickLinkID: String?
     @Published var credentialResult: ShortenerCredentialResult?
     @Published var showNewPinboardSheet = false
+    @Published var pinboardRenameRequest: PinboardRenameRequest?
     @Published var pasteStackCount = 0
     @Published private(set) var isSearchFieldFocused = false
     @Published private(set) var databaseError: String?
@@ -443,6 +444,21 @@ final class AppState: ObservableObject {
             _ = try store.createPinboard(name: name, colorHex: colorHex)
         }, completion: { [weak self] in
             self?.showToast("Pinboard created")
+        })
+    }
+
+    func beginRenamePinboard(_ pinboard: Pinboard) {
+        pinboardRenameRequest = PinboardRenameRequest(pinboard: pinboard)
+    }
+
+    func renamePinboard(_ pinboard: Pinboard, name: String) {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, let id = pinboard.id else { return }
+        performStoreWrite({ store in
+            try store.renamePinboard(id: id, name: trimmed)
+        }, completion: { [weak self] in
+            self?.pinboardRenameRequest = nil
+            self?.showToast("Pinboard renamed")
         })
     }
 

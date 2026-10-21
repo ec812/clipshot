@@ -361,3 +361,180 @@ final class HistoryStoreTests: XCTestCase {
         XCTAssertEqual(try inode(for: path), inodeBefore)
     }
 }
+
+@MainActor
+final class AppStatePinboardTests: XCTestCase {
+    private var directory: URL!
+
+    override func setUpWithError() throws {
+        try super.setUpWithError()
+        directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ClipshotPinboardTests-\(UUID().uuidString)", isDirectory: true)
+    }
+
+    override func tearDownWithError() throws {
+        try? FileManager.default.removeItem(at: directory)
+        try super.tearDownWithError()
+    }
+
+    private func waitUntil(
+        timeout: TimeInterval = 2,
+        _ condition: @escaping @MainActor () -> Bool
+    ) async {
+        let deadline = Date().addingTimeInterval(timeout)
+        while !condition() && Date() < deadline {
+            try? await Task.sleep(nanoseconds: 20_000_000)
+        }
+    }
+
+    func testAddToPinboardRefreshesPublishedStateAndFilteredItems() async throws {
+        let store = try HistoryStore.inMemory()
+        let appState = AppState(
+            store: store,
+            startMonitoring: false,
+            dataStore: ItemDataStore(directory: directory)
+        )
+        let inserted = try store.insert(
+            kind: .text,
+            text: "Remote text",
+            hash: "remote-text"
+        ).item
+
+        appState.reload()
+        await waitUntil { appState.items.contains { $0.id == inserted.id } }
+        XCTAssertTrue(appState.items.contains { $0.id == inserted.id })
+
+        appState.createPinboard(name: "Remote", colorHex: "#FF9F0A")
+        await waitUntil { appState.pinboards.contains { $0.name == "Remote" } }
+        let board = try XCTUnwrap(appState.pinboards.first { $0.name == "Remote" })
+
+        let visibleItem = try XCTUnwrap(appState.items.first { $0.id == inserted.id })
+        appState.addToPinboard(visibleItem, pinboard: board)
+        await waitUntil {
+            appState.items.first { $0.id == inserted.id }?.pinboardId == board.id
+        }
+        XCTAssertEqual(appState.items.first { $0.id == inserted.id }?.pinboardId, board.id)
+
+        appState.filterPinboardID = board.id
+        await waitUntil {
+            appState.items.count == 1 && appState.items.first?.id == inserted.id
+        }
+        XCTAssertEqual(appState.items.map(\.id), [inserted.id])
+        XCTAssertEqual(appState.items.first?.text, "Remote text")
+    }
+
+    func testActiveSearchHidesPinboardItemUntilCleared() async throws {
+        let store = try HistoryStore.inMemory()
+        let appState = AppState(
+            store: store,
+            startMonitoring: false,
+            dataStore: ItemDataStore(directory: directory)
+        )
+        let inserted = try store.insert(
+            kind: .text,
+            text: "Remote text",
+            hash: "remote-search-text"
+        ).item
+        appState.reload()
+        await waitUntil { appState.items.contains { $0.id == inserted.id } }
+
+        appState.createPinboard(name: "Remote", colorHex: "#FF9F0A")
+        await waitUntil { appState.pinboards.contains { $0.name == "Remote" } }
+        let board = try XCTUnwrap(appState.pinboards.first { $0.name == "Remote" })
+        let visibleItem = try XCTUnwrap(appState.items.first { $0.id == inserted.id })
+        appState.addToPinboard(visibleItem, pinboard: board)
+        await waitUntil {
+            appState.items.first { $0.id == inserted.id }?.pinboardId == board.id
+        }
+
+        appState.filterPinboardID = board.id
+        await waitUntil { appState.items.count == 1 }
+        XCTAssertEqual(appState.items.first?.id, inserted.id)
+
+        appState.searchText = "no-such-text"
+        await waitUntil { appState.items.isEmpty }
+        XCTAssertTrue(appState.items.isEmpty)
+
+        appState.searchText = ""
+        await waitUntil {
+            appState.items.count == 1 && appState.items.first?.id == inserted.id
+        }
+        XCTAssertEqual(appState.items.first?.text, "Remote text")
+    }
+
+    func testRenamePinboardRefreshesPublishedName() async throws {
+        let store = try HistoryStore.inMemory()
+        let appState = AppState(
+            store: store,
+            startMonitoring: false,
+            dataStore: ItemDataStore(directory: directory)
+        )
+
+        appState.createPinboard(name: "Remote", colorHex: "#FF9F0A")
+        await waitUntil { appState.pinboards.contains { $0.name == "Remote" } }
+        let board = try XCTUnwrap(appState.pinboards.first { $0.name == "Remote" })
+        appState.filterPinboardID = board.id
+
+        appState.renamePinboard(board, name: "  Remote Renamed  ")
+
+        await waitUntil { appState.pinboards.contains { $0.name == "Remote Renamed" } }
+        XCTAssertEqual(appState.pinboards.map(\.name), ["Remote Renamed"])
+        XCTAssertEqual(appState.filterPinboardID, board.id)
+        XCTAssertNil(appState.pinboardRenameRequest)
+        XCTAssertEqual(try store.pinboards().first?.name, "Remote Renamed")
+    }
+
+    func testDeletePinboardClearsPublishedFilterAndMembership() async throws {
+        let store = try HistoryStore.inMemory()
+        let appState = AppState(
+            store: store,
+            startMonitoring: false,
+            dataStore: ItemDataStore(directory: directory)
+        )
+        let inserted = try store.insert(
+            kind: .text,
+            text: "Board text",
+            hash: "board-text"
+        ).item
+        appState.reload()
+        await waitUntil { appState.items.contains { $0.id == inserted.id } }
+
+        appState.createPinboard(name: "Remote", colorHex: "#FF9F0A")
+        await waitUntil { appState.pinboards.contains { $0.name == "Remote" } }
+        let board = try XCTUnwrap(appState.pinboards.first { $0.name == "Remote" })
+        let visibleItem = try XCTUnwrap(appState.items.first { $0.id == inserted.id })
+        appState.addToPinboard(visibleItem, pinboard: board)
+        await waitUntil {
+            appState.items.first { $0.id == inserted.id }?.pinboardId == board.id
+        }
+
+        appState.filterPinboardID = board.id
+        appState.deletePinboard(board)
+
+        await waitUntil { appState.pinboards.isEmpty }
+        XCTAssertNil(appState.filterPinboardID)
+        XCTAssertNil(try store.item(id: inserted.id!)?.pinboardId)
+    }
+
+    func testRenamedTextItemExposesTitleForRendering() {
+        let renamed = ClipboardItem(
+            kind: .text,
+            text: "original body",
+            title: "Remote item name",
+            hash: "renamed"
+        )
+        XCTAssertEqual(renamed.previewTitle, "Remote item name")
+
+        XCTAssertNil(
+            ClipboardItem(kind: .text, text: "body", hash: "untitled").previewTitle
+        )
+        XCTAssertNil(
+            ClipboardItem(
+                kind: .text,
+                text: "same",
+                title: "same",
+                hash: "same-title"
+            ).previewTitle
+        )
+    }
+}

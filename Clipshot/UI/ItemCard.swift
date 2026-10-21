@@ -213,28 +213,44 @@ struct ItemCard: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
         case .text:
-            if let attributed = codeHighlight.attributedPreview(
-                for: item,
-                colorScheme: colorScheme
-            ) {
-                Text(attributed)
-                    .font(.system(size: compact ? 11.5 : 12.5, design: .monospaced))
-                    .lineLimit(compact ? 4 : 7)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .textSelection(.disabled)
-            } else {
+            VStack(alignment: .leading, spacing: 4) {
+                titleLine
+                if let attributed = codeHighlight.attributedPreview(
+                    for: item,
+                    colorScheme: colorScheme
+                ) {
+                    Text(attributed)
+                        .font(.system(size: compact ? 11.5 : 12.5, design: .monospaced))
+                        .lineLimit(compact ? 4 : 7)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .textSelection(.disabled)
+                } else {
+                    Text(item.previewText)
+                        .font(.system(size: compact ? 13 : 14.5))
+                        .lineLimit(compact ? 4 : 7)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .textSelection(.disabled)
+                }
+            }
+        default:
+            VStack(alignment: .leading, spacing: 4) {
+                titleLine
                 Text(item.previewText)
                     .font(.system(size: compact ? 13 : 14.5))
                     .lineLimit(compact ? 4 : 7)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .textSelection(.disabled)
             }
-        default:
-            Text(item.previewText)
-                .font(.system(size: compact ? 13 : 14.5))
-                .lineLimit(compact ? 4 : 7)
+        }
+    }
+
+    @ViewBuilder
+    private var titleLine: some View {
+        if let title = item.previewTitle {
+            Text(title)
+                .font(.system(size: compact ? 12 : 13, weight: .semibold))
+                .lineLimit(1)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .textSelection(.disabled)
         }
     }
 

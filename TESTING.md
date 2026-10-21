@@ -217,9 +217,11 @@ Copy each value below, then open the timeline. Each color item's entire content 
 
 ### Pinboards and snippets
 - [ ] Create a pinboard (`+` chip) with a name and color.
-- [ ] Add an item via right-click → Add to Pinboard; filter by the pinboard → item appears.
+- [ ] Add an item via right-click → Add to Pinboard; filter by the pinboard → item appears with its text.
+- [ ] With a search query or type/source filter active, the pinboard view still honors it; clear the query/filter and the item appears.
+- [ ] Right-click a pinboard chip → Rename pinboard… → save → the chip shows the new name immediately (including while that pinboard is selected).
 - [ ] Pin an item (`⌘P`) → it sorts to the top and is excluded from retention.
-- [ ] Press `⌘N`, save text → a new item appears; `⌘E` edits it, `⌘R` renames it.
+- [ ] Press `⌘N`, save text → a new item appears; `⌘E` edits it; `⌘R` renames it and the new name appears above the text on the card.
 - [ ] Set retention to 7 days in Settings, restart → unpinned items older than 7 days are gone; pinned items remain.
 
 ### Auto-shorten rule fires exactly once

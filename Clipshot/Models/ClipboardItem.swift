@@ -93,6 +93,14 @@ struct ClipboardItem: Identifiable, Equatable, Codable, FetchableRecord, Mutable
         text ?? title ?? kind.displayName
     }
 
+    /// A user-supplied name to show above the content when it differs from the
+    /// copied text. Renaming a text item stores `title`; without this it was
+    /// written to the database but never rendered anywhere.
+    var previewTitle: String? {
+        guard let title, !title.isEmpty, title != text else { return nil }
+        return title
+    }
+
     var previewText: String {
         guard let text else {
             return title ?? kind.displayName

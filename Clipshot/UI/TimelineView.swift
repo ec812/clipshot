@@ -53,6 +53,9 @@ struct TimelineView: View {
         .sheet(isPresented: $appState.showNewPinboardSheet) {
             NewPinboardSheet(appState: appState)
         }
+        .sheet(item: $appState.pinboardRenameRequest) { request in
+            RenamePinboardSheet(appState: appState, request: request)
+        }
         .alert(
             "Clipshot",
             isPresented: Binding(
@@ -255,6 +258,9 @@ struct TimelineView: View {
                     }
                     .buttonStyle(.plain)
                     .contextMenu {
+                        Button("Rename pinboard…") {
+                            appState.beginRenamePinboard(pinboard)
+                        }
                         Button("Delete pinboard", role: .destructive) {
                             appState.deletePinboard(pinboard)
                         }
