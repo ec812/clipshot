@@ -206,7 +206,6 @@ struct CardFooter: View {
             iconButton(
                 .lucideClipboardPaste,
                 help: "Paste item",
-                primary: true,
                 action: onPaste
             )
             iconButton(
@@ -295,13 +294,11 @@ struct CardFooter: View {
     private func iconButton(
         _ glyph: FooterGlyph,
         help: String,
-        primary: Bool = false,
         action: @escaping () -> Void
     ) -> some View {
         FooterIconButton(
             glyph: glyph,
             help: help,
-            primary: primary,
             size: buttonSize,
             glyphSize: CardChromeStyle.footerGlyphSize(compact: compact),
             action: action
@@ -319,7 +316,6 @@ private enum FooterGlyph {
 private struct FooterIconButton: View {
     let glyph: FooterGlyph
     let help: String
-    let primary: Bool
     let size: CGFloat
     let glyphSize: CGFloat
     let action: () -> Void
@@ -333,10 +329,6 @@ private struct FooterIconButton: View {
                 .background(
                     RoundedRectangle(cornerRadius: 7)
                         .fill(backgroundColor)
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 7)
-                        .strokeBorder(borderColor, lineWidth: 1)
                 )
         }
         .buttonStyle(.plain)
@@ -383,16 +375,7 @@ private struct FooterIconButton: View {
     }
 
     private var backgroundColor: Color {
-        if primary {
-            return Color.accentColor.opacity(isHovered ? 0.30 : 0.22)
-        }
-        return Color.primary.opacity(isHovered ? 0.12 : 0.07)
-    }
-
-    private var borderColor: Color {
-        primary
-            ? Color.accentColor.opacity(isHovered ? 0.65 : 0.45)
-            : Color.clear
+        Color.primary.opacity(isHovered ? 0.12 : 0.07)
     }
 }
 
