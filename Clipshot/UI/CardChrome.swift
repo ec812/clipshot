@@ -204,13 +204,13 @@ struct CardFooter: View {
         HStack(spacing: 5) {
             iconButton(.lucideCopy, help: "Copy item", action: onCopy)
             iconButton(
-                .system("doc.on.clipboard"),
+                .lucideClipboardPaste,
                 help: "Paste item",
                 primary: true,
                 action: onPaste
             )
             iconButton(
-                .system(isPinned ? "pin.fill" : "pin"),
+                .lucidePin(pinned: isPinned),
                 help: isPinned ? "Unpin item" : "Pin item",
                 action: onPin
             )
@@ -312,6 +312,8 @@ struct CardFooter: View {
 private enum FooterGlyph {
     case system(String)
     case lucideCopy
+    case lucideClipboardPaste
+    case lucidePin(pinned: Bool)
 }
 
 private struct FooterIconButton: View {
@@ -351,16 +353,33 @@ private struct FooterIconButton: View {
                 .font(.system(size: glyphSize, weight: .medium))
         case .lucideCopy:
             LucideCopyShape()
-                .stroke(
-                    .foreground,
-                    style: StrokeStyle(
-                        lineWidth: glyphSize * 2 / 24,
-                        lineCap: .round,
-                        lineJoin: .round
-                    )
-                )
+                .stroke(.foreground, style: strokeStyle)
                 .frame(width: glyphSize, height: glyphSize)
+        case .lucideClipboardPaste:
+            LucideClipboardPasteShape()
+                .stroke(.foreground, style: strokeStyle)
+                .frame(width: glyphSize, height: glyphSize)
+        case .lucidePin(let pinned):
+            if pinned {
+                ZStack {
+                    LucidePinShape().fill(.foreground)
+                    LucidePinNeedleShape().stroke(.foreground, style: strokeStyle)
+                }
+                .frame(width: glyphSize, height: glyphSize)
+            } else {
+                LucidePinShape()
+                    .stroke(.foreground, style: strokeStyle)
+                    .frame(width: glyphSize, height: glyphSize)
+            }
         }
+    }
+
+    private var strokeStyle: StrokeStyle {
+        StrokeStyle(
+            lineWidth: glyphSize * 2 / 24,
+            lineCap: .round,
+            lineJoin: .round
+        )
     }
 
     private var backgroundColor: Color {
@@ -416,6 +435,165 @@ private struct LucideCopyShape: Shape {
             control1: point(15.1, 2),
             control2: point(16, 2.9)
         )
+        return path
+    }
+}
+
+private struct LucideGrid {
+    let scale: CGFloat
+    let origin: CGPoint
+
+    init(rect: CGRect) {
+        scale = min(rect.width, rect.height) / 24
+        origin = CGPoint(x: rect.midX - 12 * scale, y: rect.midY - 12 * scale)
+    }
+
+    func point(_ x: CGFloat, _ y: CGFloat) -> CGPoint {
+        CGPoint(x: origin.x + x * scale, y: origin.y + y * scale)
+    }
+
+    func length(_ value: CGFloat) -> CGFloat {
+        value * scale
+    }
+}
+
+/// Appends a circular SVG arc from the path's current point, preserving the
+/// SVG sweep-flag direction in SwiftUI's y-down coordinate space.
+private func addLucideArc(
+    to end: CGPoint,
+    radius: CGFloat,
+    sweep: Bool,
+    in path: inout Path
+) {
+    guard let start = path.currentPoint else {
+        path.move(to: end)
+        return
+    }
+
+    let dx = (start.x - end.x) / 2
+    let dy = (start.y - end.y) / 2
+    let denominator = dx * dx + dy * dy
+    guard denominator > 0 else { return }
+
+    let sign: CGFloat = sweep ? 1 : -1
+    let factor = sign * sqrt(max(0, (radius * radius - denominator) / denominator))
+    let center = CGPoint(
+        x: factor * dy + (start.x + end.x) / 2,
+        y: factor * -dx + (start.y + end.y) / 2
+    )
+
+    let startAngle = atan2(start.y - center.y, start.x - center.x)
+    var endAngle = atan2(end.y - center.y, end.x - center.x)
+    if sweep {
+        while endAngle < startAngle { endAngle += 2 * .pi }
+    } else {
+        while endAngle > startAngle { endAngle -= 2 * .pi }
+    }
+
+    let delta = endAngle - startAngle
+    let segments = max(1, Int(ceil(abs(delta) / (.pi / 2))))
+    let step = delta / CGFloat(segments)
+    var angle = startAngle
+
+    for _ in 0..<segments {
+        let next = angle + step
+        let handle = 4 / 3 * tan(step / 4) * radius
+        let control1 = CGPoint(
+            x: center.x + radius * cos(angle) - handle * sin(angle),
+            y: center.y + radius * sin(angle) + handle * cos(angle)
+        )
+        let control2 = CGPoint(
+            x: center.x + radius * cos(next) + handle * sin(next),
+            y: center.y + radius * sin(next) - handle * cos(next)
+        )
+        let endpoint = CGPoint(
+            x: center.x + radius * cos(next),
+            y: center.y + radius * sin(next)
+        )
+        path.addCurve(to: endpoint, control1: control1, control2: control2)
+        angle = next
+    }
+}
+
+/// Lucide's "clipboard-paste" glyph on its 24x24 grid.
+private struct LucideClipboardPasteShape: Shape {
+    func path(in rect: CGRect) -> Path {
+        let grid = LucideGrid(rect: rect)
+        var path = Path()
+
+        path.move(to: grid.point(11, 14))
+        path.addLine(to: grid.point(21, 14))
+
+        path.move(to: grid.point(16, 4))
+        path.addLine(to: grid.point(18, 4))
+        addLucideArc(to: grid.point(20, 6), radius: grid.length(2), sweep: true, in: &path)
+        path.addLine(to: grid.point(20, 7.344))
+
+        path.move(to: grid.point(17, 18))
+        path.addLine(to: grid.point(21, 14))
+        path.addLine(to: grid.point(17, 10))
+
+        path.move(to: grid.point(8, 4))
+        path.addLine(to: grid.point(6, 4))
+        addLucideArc(to: grid.point(4, 6), radius: grid.length(2), sweep: false, in: &path)
+        path.addLine(to: grid.point(4, 20))
+        addLucideArc(to: grid.point(6, 22), radius: grid.length(2), sweep: false, in: &path)
+        path.addLine(to: grid.point(18, 22))
+        addLucideArc(to: grid.point(19.793, 20.887), radius: grid.length(2), sweep: false, in: &path)
+
+        path.addRoundedRect(
+            in: CGRect(
+                x: grid.point(8, 2).x,
+                y: grid.point(8, 2).y,
+                width: grid.length(8),
+                height: grid.length(4)
+            ),
+            cornerSize: CGSize(width: grid.length(1), height: grid.length(1))
+        )
+        return path
+    }
+}
+
+/// Lucide's "pin" glyph body on its 24x24 grid.
+private struct LucidePinShape: Shape {
+    func path(in rect: CGRect) -> Path {
+        let grid = LucideGrid(rect: rect)
+        var path = Path()
+
+        path.move(to: grid.point(12, 17))
+        path.addLine(to: grid.point(12, 22))
+
+        path.move(to: grid.point(9, 10.76))
+        addLucideArc(to: grid.point(7.89, 12.55), radius: grid.length(2), sweep: true, in: &path)
+        path.addLine(to: grid.point(6.11, 13.45))
+        addLucideArc(to: grid.point(5, 15.24), radius: grid.length(2), sweep: false, in: &path)
+        path.addLine(to: grid.point(5, 16))
+        addLucideArc(to: grid.point(6, 17), radius: grid.length(1), sweep: false, in: &path)
+        path.addLine(to: grid.point(18, 17))
+        addLucideArc(to: grid.point(19, 16), radius: grid.length(1), sweep: false, in: &path)
+        path.addLine(to: grid.point(19, 15.24))
+        addLucideArc(to: grid.point(17.89, 13.45), radius: grid.length(2), sweep: false, in: &path)
+        path.addLine(to: grid.point(16.11, 12.55))
+        addLucideArc(to: grid.point(15, 10.76), radius: grid.length(2), sweep: true, in: &path)
+        path.addLine(to: grid.point(15, 7))
+        addLucideArc(to: grid.point(16, 6), radius: grid.length(1), sweep: true, in: &path)
+        addLucideArc(to: grid.point(16, 2), radius: grid.length(2), sweep: false, in: &path)
+        path.addLine(to: grid.point(8, 2))
+        addLucideArc(to: grid.point(8, 6), radius: grid.length(2), sweep: false, in: &path)
+        addLucideArc(to: grid.point(9, 7), radius: grid.length(1), sweep: true, in: &path)
+        path.closeSubpath()
+
+        return path
+    }
+}
+
+/// The needle that stays visible when the pin is filled.
+private struct LucidePinNeedleShape: Shape {
+    func path(in rect: CGRect) -> Path {
+        let grid = LucideGrid(rect: rect)
+        var path = Path()
+        path.move(to: grid.point(12, 17))
+        path.addLine(to: grid.point(12, 22))
         return path
     }
 }
