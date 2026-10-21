@@ -8,6 +8,7 @@ struct ItemCard: View {
     @Environment(\.colorScheme) private var colorScheme
     @ObservedObject var appIcons: AppIconProvider
     @ObservedObject var clipImages: ClipImageStore
+    @ObservedObject var codeHighlight: CodeHighlightStore
     let linkPreviews: LinkPreviewStore
     let fetchLinkPreviews: Bool
     let isPaused: Bool
@@ -28,40 +29,43 @@ struct ItemCard: View {
     let onAddToStack: () -> Void
     let pinboards: [Pinboard]
 
-    private static let minimumWidth: CGFloat = 360
-
     var body: some View {
         VStack(spacing: 0) {
-            CardBand(
-                icon: appIcons.icon(for: item.bundleId),
-                sourceApp: item.sourceApp ?? "Unknown",
-                kind: item.kind,
-                relativeTime: relativeTime,
-                accent: appIcons.accent(for: item.bundleId),
-                isSelected: isSelected,
-                isPinned: item.isPinned,
-                hasShortLink: item.hasShortLink,
-                isSnippet: item.isSnippet,
-                compact: compact
-            )
+            VStack(spacing: 0) {
+                CardBand(
+                    icon: appIcons.icon(for: item.bundleId),
+                    sourceApp: item.sourceApp ?? "Unknown",
+                    kind: displayKind,
+                    relativeTime: relativeTime,
+                    accent: appIcons.accent(for: item.bundleId),
+                    isSelected: isSelected,
+                    isPinned: item.isPinned,
+                    hasShortLink: item.hasShortLink,
+                    isSnippet: item.isSnippet,
+                    compact: compact
+                )
 
-            preview
-                .padding(
-                    .horizontal,
-                    item.kind == .color ? 0 : CardChromeStyle.bodyHorizontalPadding
-                )
-                .padding(
-                    .vertical,
-                    item.kind == .color ? 0 : CardChromeStyle.bodyVerticalPadding
-                )
-                .frame(
-                    maxWidth: .infinity,
-                    maxHeight: .infinity,
-                    alignment: .topLeading
-                )
+                preview
+                    .padding(
+                        .horizontal,
+                        displayKind == .color ? 0 : CardChromeStyle.bodyHorizontalPadding
+                    )
+                    .padding(
+                        .vertical,
+                        displayKind == .color ? 0 : CardChromeStyle.bodyVerticalPadding
+                    )
+                    .frame(
+                        maxWidth: .infinity,
+                        maxHeight: .infinity,
+                        alignment: .topLeading
+                    )
+            }
+            .contentShape(Rectangle())
+            .onTapGesture(count: 2) { onPaste() }
+            .onTapGesture { onSelect() }
 
             CardFooter(
-                kind: item.kind,
+                kind: displayKind,
                 isPinned: item.isPinned,
                 compact: compact,
                 onCopy: onCopy,
@@ -75,7 +79,7 @@ struct ItemCard: View {
                 onRename: onRename
             )
         }
-        .frame(width: max(Self.minimumWidth, compact ? 138 : 204))
+        .frame(width: CardChromeStyle.cardWidth)
         .frame(maxHeight: .infinity)
         .background(cardBackground)
         .clipShape(
@@ -85,15 +89,21 @@ struct ItemCard: View {
             )
         )
         .overlay(cardBorder)
-        .contentShape(Rectangle())
-        .onTapGesture(count: 2) { onPaste() }
-        .onTapGesture { onSelect() }
         .contextMenu { contextMenu }
         .help(item.displayText)
         .onAppear {
             appIcons.ensureLoaded(bundleId: item.bundleId)
-            clipImages.ensureLoaded(path: item.dataPath)
+            clipImages.ensureLoaded(path: item.previewImagePath)
+            if displayKind == .text {
+                codeHighlight.ensureProcessed(item)
+            }
         }
+    }
+
+    /// Colors stored as `.text`/`.rtf` by older classifiers still need to
+    /// render as color cards.
+    private var displayKind: ClipboardItemKind {
+        item.displayKind
     }
 
     private var cardBackground: some View {
@@ -133,7 +143,7 @@ struct ItemCard: View {
 
     @ViewBuilder
     private var preview: some View {
-        switch item.kind {
+        switch displayKind {
         case .color:
             if let text = item.text, let parsed = ClipboardColorParser.parse(text) {
                 let background = colorScheme == .dark
@@ -183,34 +193,75 @@ struct ItemCard: View {
                 fallbackText: item.previewText
             )
         case .image:
-            if let image = clipImages.image(forPath: item.dataPath) {
-                Image(nsImage: image)
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: compact ? 46 : 78)
-                    .clipped()
-                    .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+            if let image = clipImages.image(forPath: item.previewImagePath) {
+                cardThumbnail(image)
             } else {
                 fallbackPreview
             }
         case .file:
-            HStack(spacing: 5) {
-                Image(systemName: "doc.fill")
-                    .font(.system(size: compact ? 21 : 26))
-                    .foregroundStyle(.secondary)
-                Text(item.title ?? item.previewText)
-                    .font(.system(size: compact ? 13 : 14.5))
-                    .lineLimit(compact ? 3 : 4)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-        default:
-            Text(item.previewText)
-                .font(.system(size: compact ? 13 : 14.5))
-                .lineLimit(compact ? 4 : 7)
+            if let image = clipImages.image(forPath: item.previewImagePath) {
+                cardThumbnail(image)
+            } else {
+                HStack(spacing: 5) {
+                    Image(systemName: "doc.fill")
+                        .font(.system(size: compact ? 21 : 26))
+                        .foregroundStyle(.secondary)
+                    Text(item.title ?? item.previewText)
+                        .font(.system(size: compact ? 13 : 14.5))
+                        .lineLimit(compact ? 3 : 4)
+                }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .textSelection(.disabled)
+            }
+        case .text:
+            VStack(alignment: .leading, spacing: 4) {
+                titleLine
+                if let attributed = codeHighlight.attributedPreview(
+                    for: item,
+                    colorScheme: colorScheme
+                ) {
+                    Text(attributed)
+                        .font(.system(size: compact ? 11.5 : 12.5, design: .monospaced))
+                        .lineLimit(compact ? 4 : 7)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .textSelection(.disabled)
+                } else {
+                    Text(item.previewText)
+                        .font(.system(size: compact ? 13 : 14.5))
+                        .lineLimit(compact ? 4 : 7)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .textSelection(.disabled)
+                }
+            }
+        default:
+            VStack(alignment: .leading, spacing: 4) {
+                titleLine
+                Text(item.previewText)
+                    .font(.system(size: compact ? 13 : 14.5))
+                    .lineLimit(compact ? 4 : 7)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .textSelection(.disabled)
+            }
         }
+    }
+
+    @ViewBuilder
+    private var titleLine: some View {
+        if let title = item.previewTitle {
+            Text(title)
+                .font(.system(size: compact ? 12 : 13, weight: .semibold))
+                .lineLimit(1)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private func cardThumbnail(_ image: NSImage) -> some View {
+        let size = CardChromeStyle.thumbnailSize(for: image.size, compact: compact)
+        return Image(nsImage: image)
+            .resizable()
+            .aspectRatio(contentMode: .fit)
+            .frame(width: size.width, height: size.height)
+            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+            .frame(maxWidth: .infinity, alignment: .center)
     }
 
     private var fallbackPreview: some View {
@@ -231,8 +282,19 @@ struct ItemCard: View {
         Button("Paste") { onPaste() }
         Button("Paste as Plain Text") { onPlainPaste() }
         Button("Copy") { onCopy() }
+        if displayKind == .text {
+            if codeHighlight.isCode(for: item) {
+                Button("Show as Plain Text") {
+                    codeHighlight.setOverride(false, for: item)
+                }
+            } else {
+                Button("Highlight as Code") {
+                    codeHighlight.setOverride(true, for: item)
+                }
+            }
+        }
         Divider()
-        if item.kind == .url {
+        if displayKind == .url {
             Button("Shorten…") { onShorten() }
             if item.hasShortLink {
                 Button("Copy Short Link") {
@@ -243,9 +305,9 @@ struct ItemCard: View {
                 }
             }
         }
-        if item.kind != .color {
+        if displayKind != .color {
             Button("Show QR Code") { onQR() }
-            if item.hasShortLink, item.kind == .url {
+            if item.hasShortLink, displayKind == .url {
                 Button("Show QR Code for Original URL") { onQROriginal() }
             }
         }
@@ -264,7 +326,7 @@ struct ItemCard: View {
         }
         Button("Add to Paste Stack") { onAddToStack() }
         Divider()
-        if item.kind == .text || item.kind == .url {
+        if displayKind == .text || displayKind == .url {
             Button("Edit…") { onEdit() }
         }
         Button("Rename…") { onRename() }

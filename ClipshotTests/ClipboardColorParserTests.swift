@@ -166,6 +166,58 @@ final class ClipboardColorParserTests: XCTestCase {
         assertColor("white", red: 1, green: 1, blue: 1)
     }
 
+    // MARK: - cmyk()/cmyka()
+
+    /// Bare CMYK values use the 0–100 scale (like the user-facing
+    /// `cmyk(0, 100, 100, 0)` form); percentages are equivalent.
+    func testCMYKNumbersUseZeroToHundredScale() {
+        assertColor("cmyk(0, 100, 100, 0)", red: 1, green: 0, blue: 0)
+        assertColor("cmyk(100, 0, 0, 0)", red: 0, green: 1, blue: 1)
+        assertColor("cmyk(100, 100, 0, 0)", red: 0, green: 0, blue: 1)
+        assertColor("cmyk(0, 0, 0, 0)", red: 1, green: 1, blue: 1)
+        assertColor("cmyk(0, 0, 0, 100)", red: 0, green: 0, blue: 0)
+    }
+
+    func testCMYKPercentagesAndAlpha() {
+        assertColor("cmyk(0%, 100%, 100%, 0%)", red: 1, green: 0, blue: 0)
+        assertColor("cmyka(0, 100, 100, 0, 0.5)", red: 1, green: 0, blue: 0, alpha: 0.5)
+        assertColor("cmyk(0 100 100 0 / 25%)", red: 1, green: 0, blue: 0, alpha: 0.25)
+        assertColor("cmyk(0 100 100 0 0.75)", red: 1, green: 0, blue: 0, alpha: 0.75)
+    }
+
+    func testCMYKRejectsInvalid() {
+        XCTAssertNil(ClipboardColorParser.parse("cmyk(0, 101, 100, 0)"))
+        XCTAssertNil(ClipboardColorParser.parse("cmyk(-1, 0, 0, 0)"))
+        XCTAssertNil(ClipboardColorParser.parse("cmyk(0, 100, 100)"))
+        XCTAssertNil(ClipboardColorParser.parse("cmyk(0, 100, 100, 0, 1.5)"))
+        XCTAssertNil(ClipboardColorParser.parse("cmyk(0%, 50%, 50%, 0) extra"))
+    }
+
+    // MARK: - Hashless hex
+
+    func testHashlessHex() {
+        assertColor("FF5733", red: 0xFF / 255.0, green: 0x57 / 255.0, blue: 0x33 / 255.0)
+        assertColor("ff5733", red: 0xFF / 255.0, green: 0x57 / 255.0, blue: 0x33 / 255.0)
+        assertColor(
+            "FF573380",
+            red: 0xFF / 255.0,
+            green: 0x57 / 255.0,
+            blue: 0x33 / 255.0,
+            alpha: 0x80 / 255.0
+        )
+    }
+
+    /// A bare six/eight-character hex string must contain both a hex letter
+    /// and a digit, so timestamps, phone numbers and ordinary words stay text.
+    func testHashlessHexRejectsAmbiguousValues() {
+        XCTAssertNil(ClipboardColorParser.parse("123456"))
+        XCTAssertNil(ClipboardColorParser.parse("20240101"))
+        XCTAssertNil(ClipboardColorParser.parse("deadbeef"))
+        XCTAssertNil(ClipboardColorParser.parse("facade"))
+        XCTAssertNil(ClipboardColorParser.parse("f00"))
+        XCTAssertNil(ClipboardColorParser.parse("FF5733 trailing"))
+    }
+
     // MARK: - Whole-string requirement
 
     func testRejectsMixedContent() {

@@ -14,7 +14,7 @@ xcodebuild -scheme Clipshot test
 Latest verified result on this machine (Xcode 27.1, macOS 27.0.1):
 
 - `xcodebuild -scheme Clipshot build` → **BUILD SUCCEEDED**
-- `xcodebuild -scheme Clipshot test` → **TEST SUCCEEDED** — 144 tests, 0 failures
+- `xcodebuild -scheme Clipshot test` → **TEST SUCCEEDED** — 197 tests, 0 failures
   - `HistoryStoreTests` — 19
   - `PrivacyFilterTests` — 10
   - `BitlyBackendTests` — 17
@@ -31,6 +31,11 @@ Latest verified result on this machine (Xcode 27.1, macOS 27.0.1):
   - `ColorCardStyleTests` — 8
   - `SingleInstanceGuardTests` — 1
   - `ResizeHandleTests` — 2
+  - `HorizontalScrollWheelTests` — 6
+  - `ItemCardClickTests` — 2
+  - `CodeDetectorTests` — 24
+  - `CodeHighlighterTests` — 14
+  - `CodeHighlightStoreTests` — 7
 
 Note: Xcode prints unrelated `CoreDevice` / `CoreSimulator` warnings on this machine ("CoreSimulator is out of date"). They concern iOS device support and do not affect macOS builds or tests.
 
@@ -40,7 +45,8 @@ Note: Xcode prints unrelated `CoreDevice` / `CoreSimulator` warnings on this mac
 | --- | --- |
 | `HistoryStore` | insert, hash dedupe + timestamp bump, FTS5 prefix search, punctuation-safe queries, kind/bundle filters, retention (pinned kept), pinboards, short-link cache, rule ordering, edit/delete, WAL journal mode + 5 s busy timeout, file reopen persistence, migration idempotency, WAL-present reopen without recreation, I/O-error recovery on the same file, corrupt-WAL leaves the database file intact |
 | `PrivacyFilter` | ignore list, transient/auto-generated markers, concealment markers, pause expiry, resume, live ignore-list updates |
-| `ClipboardPayloadReader` | text/color/URL/file classification, URL capture path is synchronous and does not fetch previews, image payload persistence from a background-safe pasteboard snapshot |
+| `ClipboardPayloadReader` | text/color/URL/file classification, Finder image copies keep File kind, image pathname strings (existing image, missing file, non-image, directory, prose) classify correctly, URL capture path is synchronous and does not fetch previews, image payload persistence from a background-safe pasteboard snapshot |
+| `PasteEngine` | File items write `public.file-url`, image items write `public.png`, and the short-link text override applies only to URL short links |
 | `SingleInstanceGuard` | second lock acquisition fails, pid is written, lock can be reacquired after release |
 | `BitlyBackend` | POST `/shorten` (Bearer header, `long_url`, `domain`, `group_guid`, cache), POST `/bitlinks` custom-slug path, 401 `INVALID_ARG_ACCESS_TOKEN`, 404, `BRANDED_LINK_MONTHLY_LIMIT_EXCEEDED`, `DNS_CONFIGURATION_ERROR`, validation, 503, missing token, PATCH update, DELETE, GET `/user` verify, clicks parsing + cache update, capabilities |
 | `ShortenRulesEngine` | URL/host globs, source app matching, priority order, disabled rules, slug tokens and sanitization, determinism |
@@ -51,6 +57,9 @@ Note: Xcode prints unrelated `CoreDevice` / `CoreSimulator` warnings on this mac
 | `CardAccentStyle` | unselected border opacity ≥ 0.5 and wash ≥ 0.10, selected stronger than unselected, blue/yellow composited hue preserved over a dark card background |
 | `CardChromeStyle` | full/compact band, icon, footer, and button dimensions; selected/dark band tint strength; nil-accent fallback; 450 pt compact boundary |
 | `ColorCardStyle` | WCAG relative luminance → black/white foreground: white → black, black → white, #a51a15 → white, khaki/lightyellow → black, translucent blue composited over dark/light card backgrounds |
+| `CodeDetector` | Swift/JS/TS/Python/JSON/shell/SQL/HTML/CSS/C-family positives, indented and single-line snippets, prose/email/dashed-text/URL/date negatives, CRLF, bounded 16 KB prefix |
+| `CodeHighlighter` | keyword/type/string/number/comment token kinds, HTML tag/attribute tokens, CSS property names, unterminated strings, tab normalization, text preservation, 2,000-char/40-line bounds, light/dark theme colors |
+| `CodeHighlightStore` | one detection per hash, both color-scheme variants cached, one revision bump, in-flight dedupe, override precedence and persistence, forced generic fallback, non-text/empty items ignored |
 
 ## 2. Manual checklist
 
@@ -68,9 +77,22 @@ Complete every item on a real Mac (simulators do not exercise menu-bar, full-scr
 - [ ] Copy in **Terminal** → appears.
 - [ ] Copy a file in **Finder** → appears as a File card with the filename.
 - [ ] Copy an image in **Preview** (select region → ⌘C) → appears as an image card; preview renders.
+- [ ] Copy an image file in **Finder** (⌘C) → the File card shows the image thumbnail, not the filename or path. Paste into Finder (⌘V) still pastes the file.
+- [ ] Image thumbnails preserve aspect ratio without cropping: landscape images span the full inner width with auto height; portrait images are height-capped (220 pt normal / 200 pt compact) with auto width and horizontally centered. Test wide, standard, tall and square images.
+- [ ] Select an image file in Finder and use **⌥⌘C Copy as Pathname**, then open the timeline → the card shows the image thumbnail (File kind), not the path text.
+- [ ] Copy a path to a non-image file (e.g. a PDF) or prose containing a path → unchanged (text/File as before, no thumbnail).
 - [ ] Copy rich text from **Notes** → appears as Rich Text, plain text preview visible.
 - [ ] Copy a URL from any app → appears as a Link card; `⌥⇧S` becomes available.
 - [ ] Re-copy the exact same content → no duplicate card; the existing item moves to the front.
+
+### Code highlighting
+- [ ] Copy a multi-line **Swift** snippet from Xcode → the card preview is monospaced and syntax-highlighted, with line breaks and indentation preserved inside the 4/7-line limit.
+- [ ] Repeat for **JavaScript/TypeScript**, **Python**, **JSON**, a shell script, **SQL**, **HTML** and **CSS** → each is highlighted with the expected language colors.
+- [ ] Copy a prose paragraph, an email with punctuation, and dashed prose → no highlighting; the preview stays in the existing SF Pro style.
+- [ ] Right-click a highlighted code card → **Show as Plain Text**; right-click a prose card → **Highlight as Code**; relaunch and confirm both overrides stick.
+- [ ] Check compact and full overlay heights, and light and dark appearance.
+- [ ] Copying several items in a row remains responsive (detection runs lazily off-main, never on the capture hot path).
+- [ ] Reference capture: `Docs/verify-code-highlight.png`.
 
 ### Pasting — into at least 5 apps
 - [ ] Press `↩` on a text item with **TextEdit** focused → text is inserted at the cursor and the previous clipboard is restored.
@@ -115,12 +137,17 @@ Copy each value below, then open the timeline. Each color item's entire content 
 | `rgba(255, 0, 0, 0.25)` | translucent red |
 | `hsl(120, 100%, 50%)` | green |
 | `hsla(240, 100%, 50%, 0.25)` | translucent blue |
+| `cmyk(0, 100, 100, 0)` | red (CMYK components use the 0–100 scale) |
+| `cmyka(0, 100, 100, 0, 0.5)` | translucent red |
+| `FF5733` | orange (bare six-digit hex; must mix a hex letter and a digit) |
 | `oklch(0.62796 0.25768 29.234)` | red |
 | `okchl(0.62796 0.25768 29.234)` | red (typo alias) |
 | `red` / `ReBeCcApUrPlE` | named CSS colors |
 | `transparent` | fully transparent color fill |
 | `hello #ff0000` | **text**, not a color |
 
+- [ ] Copy a color value from a rich source that also offers an RTF flavor (Safari selection, browser devtools, a design tool) → still a color card; the RTF flavor must not win.
+- [ ] Copy `20240101`, `123456`, `deadbeef` or `facade` → stays a text item (bare hex must mix a hex letter and a digit).
 - [ ] Copy `#3498db`, paste into TextEdit with `↩` → the original text `#3498db` is pasted.
 - [ ] Paste the same color into a color-aware app (e.g. a design tool color field) → the `NSColor` representation is accepted.
 - [ ] Search for `a51a15` / `f5deb3` → the color items are found (the original text remains the indexed/preview text).
@@ -190,9 +217,11 @@ Copy each value below, then open the timeline. Each color item's entire content 
 
 ### Pinboards and snippets
 - [ ] Create a pinboard (`+` chip) with a name and color.
-- [ ] Add an item via right-click → Add to Pinboard; filter by the pinboard → item appears.
+- [ ] Add an item via right-click → Add to Pinboard; filter by the pinboard → item appears with its text.
+- [ ] With a search query or type/source filter active, the pinboard view still honors it; clear the query/filter and the item appears.
+- [ ] Right-click a pinboard chip → Rename pinboard… → save → the chip shows the new name immediately (including while that pinboard is selected).
 - [ ] Pin an item (`⌘P`) → it sorts to the top and is excluded from retention.
-- [ ] Press `⌘N`, save text → a new item appears; `⌘E` edits it, `⌘R` renames it.
+- [ ] Press `⌘N`, save text → a new item appears; `⌘E` edits it; `⌘R` renames it and the new name appears above the text on the card.
 - [ ] Set retention to 7 days in Settings, restart → unpinned items older than 7 days are gone; pinned items remain.
 
 ### Auto-shorten rule fires exactly once

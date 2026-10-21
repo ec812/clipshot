@@ -1,6 +1,7 @@
 import AppKit
 import CryptoKit
 import Foundation
+import UniformTypeIdentifiers
 
 struct CapturedPayload {
     let kind: ClipboardItemKind
@@ -84,6 +85,48 @@ enum ClipboardPayloadReader {
             )
         }
 
+        // Colors: an explicit NSColor pasteboard representation is authoritative.
+        if let colorData = snapshot.colorData,
+           let color = try? NSKeyedUnarchiver.unarchivedObject(ofClass: NSColor.self, from: colorData),
+           let hex = hexString(from: color) {
+            return CapturedPayload(
+                kind: .color,
+                text: hex,
+                title: "Color \(hex)",
+                dataPath: nil,
+                hash: hash(kind: .color, strings: [hex])
+            )
+        }
+
+        // A plain string that is entirely one color wins over an accompanying
+        // RTF flavor. Rich sources (browsers, devtools, design tools) attach RTF
+        // to copied color text; checking RTF first classified those as .rtf and
+        // rendered them as plain text instead of color cards.
+        if let string = snapshot.string, ClipboardColorParser.parse(string) != nil {
+            return CapturedPayload(
+                kind: .color,
+                text: string,
+                title: nil,
+                dataPath: nil,
+                hash: hash(kind: .color, strings: [string])
+            )
+        }
+
+        // A whole-string pathname that points at an existing image file is a
+        // file payload (Finder's Copy as Pathname, terminals, chat apps). Keep
+        // .file so pasting still writes a file URL; the card derives a
+        // thumbnail from that URL. Existence + type only, never image data.
+        if let string = snapshot.string,
+           let imageURL = existingImageFileURL(for: string) {
+            return CapturedPayload(
+                kind: .file,
+                text: imageURL.absoluteString,
+                title: imageURL.lastPathComponent,
+                dataPath: nil,
+                hash: hash(kind: .file, strings: [imageURL.absoluteString])
+            )
+        }
+
         // Rich text, with the plain-text representation kept for search/paste.
         if let rtf = snapshot.rtfData {
             let plain = NSAttributedString(rtf: rtf, documentAttributes: nil)?.string ?? snapshot.string
@@ -98,28 +141,8 @@ enum ClipboardPayloadReader {
             )
         }
 
-        // Colors (e.g. copied from color pickers).
-        if let colorData = snapshot.colorData,
-           let color = try? NSKeyedUnarchiver.unarchivedObject(ofClass: NSColor.self, from: colorData),
-           let hex = hexString(from: color) {
-            return CapturedPayload(
-                kind: .color,
-                text: hex,
-                title: "Color \(hex)",
-                dataPath: nil,
-                hash: hash(kind: .color, strings: [hex])
-            )
-        }
-
         if let string = snapshot.string, !string.isEmpty {
-            let kind: ClipboardItemKind
-            if ClipboardColorParser.parse(string) != nil {
-                kind = .color
-            } else if detectURL(in: string) != nil {
-                kind = .url
-            } else {
-                kind = .text
-            }
+            let kind: ClipboardItemKind = detectURL(in: string) != nil ? .url : .text
             return CapturedPayload(
                 kind: kind,
                 text: string,
@@ -130,6 +153,38 @@ enum ClipboardPayloadReader {
         }
 
         return nil
+    }
+
+    /// A whole-string pathname or `file://` URL pointing at an existing image
+    /// file. Bounded so prose with a path-looking token never matches, and it
+    /// performs only an existence + type check (no image data is read).
+    static func existingImageFileURL(for raw: String) -> URL? {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty,
+              trimmed.count <= 4096,
+              !trimmed.contains(where: \.isNewline)
+        else { return nil }
+
+        let url: URL
+        if trimmed.lowercased().hasPrefix("file://") {
+            guard let parsed = URL(string: trimmed), parsed.isFileURL else { return nil }
+            url = parsed
+        } else {
+            guard trimmed.hasPrefix("/") || trimmed.hasPrefix("~") else { return nil }
+            url = URL(fileURLWithPath: (trimmed as NSString).expandingTildeInPath)
+        }
+
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory),
+              !isDirectory.boolValue,
+              isImageFileURL(url)
+        else { return nil }
+        return url
+    }
+
+    static func isImageFileURL(_ url: URL) -> Bool {
+        guard let type = UTType(filenameExtension: url.pathExtension) else { return false }
+        return type.conforms(to: .image)
     }
 
     static func detectURL(in string: String) -> URL? {

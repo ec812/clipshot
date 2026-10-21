@@ -177,6 +177,42 @@ struct EditorSheet: View {
     }
 }
 
+struct RenamePinboardSheet: View {
+    @ObservedObject var appState: AppState
+    let request: PinboardRenameRequest
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var name = ""
+
+    private var trimmedName: String {
+        name.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Rename pinboard")
+                .font(.system(size: 16, weight: .semibold))
+
+            TextField("Name", text: $name)
+                .textFieldStyle(.roundedBorder)
+
+            HStack {
+                Spacer()
+                Button("Cancel") { dismiss() }
+                    .keyboardShortcut(.cancelAction)
+                Button("Save") {
+                    appState.renamePinboard(request.pinboard, name: name)
+                }
+                .keyboardShortcut(.defaultAction)
+                .disabled(trimmedName.isEmpty)
+            }
+        }
+        .padding(20)
+        .frame(width: 360)
+        .onAppear { name = request.pinboard.name }
+    }
+}
+
 struct NewPinboardSheet: View {
     @ObservedObject var appState: AppState
     @Environment(\.dismiss) private var dismiss

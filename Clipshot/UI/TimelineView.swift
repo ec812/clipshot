@@ -53,6 +53,9 @@ struct TimelineView: View {
         .sheet(isPresented: $appState.showNewPinboardSheet) {
             NewPinboardSheet(appState: appState)
         }
+        .sheet(item: $appState.pinboardRenameRequest) { request in
+            RenamePinboardSheet(appState: appState, request: request)
+        }
         .alert(
             "Clipshot",
             isPresented: Binding(
@@ -255,6 +258,9 @@ struct TimelineView: View {
                     }
                     .buttonStyle(.plain)
                     .contextMenu {
+                        Button("Rename pinboard…") {
+                            appState.beginRenamePinboard(pinboard)
+                        }
                         Button("Delete pinboard", role: .destructive) {
                             appState.deletePinboard(pinboard)
                         }
@@ -290,6 +296,7 @@ struct TimelineView: View {
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 5)
+            .background(HorizontalScrollWheelAdapter())
         }
     }
 
@@ -333,6 +340,7 @@ struct TimelineView: View {
                             compact: isCompact,
                             appIcons: appState.appIcons,
                             clipImages: appState.clipImages,
+                            codeHighlight: appState.codeHighlight,
                             linkPreviews: appState.linkPreviews,
                             fetchLinkPreviews: appState.settings.fetchLinkPreviews,
                             isPaused: appState.isPaused,
@@ -359,6 +367,7 @@ struct TimelineView: View {
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
+                .background(HorizontalScrollWheelAdapter())
             }
             .onChange(of: appState.selectedItemID) { _, newValue in
                 guard let newValue else { return }

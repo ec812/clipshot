@@ -20,6 +20,11 @@ struct ShortenRequest: Identifiable {
     let url: URL
 }
 
+struct PinboardRenameRequest: Identifiable {
+    let id = UUID()
+    let pinboard: Pinboard
+}
+
 /// UserDefaults-backed settings. Everything here is local; API keys live in Keychain.
 @MainActor
 final class AppSettings: ObservableObject {

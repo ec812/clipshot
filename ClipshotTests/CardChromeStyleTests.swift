@@ -79,4 +79,111 @@ final class CardChromeStyleTests: XCTestCase {
         XCTAssertFalse(CardChromeStyle.isCompact(overlayHeight: 560, alwaysCompact: false))
         XCTAssertTrue(CardChromeStyle.isCompact(overlayHeight: 560, alwaysCompact: true))
     }
+
+    private func assertThumbnailSize(
+        image: CGSize,
+        compact: Bool,
+        width: CGFloat,
+        height: CGFloat,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        let size = CardChromeStyle.thumbnailSize(for: image, compact: compact)
+        XCTAssertEqual(size.width, width, accuracy: 0.001, file: file, line: line)
+        XCTAssertEqual(size.height, height, accuracy: 0.001, file: file, line: line)
+        XCTAssertEqual(
+            size.width / size.height,
+            image.width / image.height,
+            accuracy: 0.001,
+            "aspect ratio must be preserved",
+            file: file,
+            line: line
+        )
+    }
+
+    func testThumbnailSizeFillsWidthForLandscapeAndCapsPortrait() {
+        XCTAssertEqual(CardChromeStyle.cardWidth, 360)
+        XCTAssertEqual(CardChromeStyle.thumbnailWidth, 336)
+        XCTAssertEqual(CardChromeStyle.thumbnailMaxHeight, 220)
+        XCTAssertEqual(CardChromeStyle.compactThumbnailMaxHeight, 200)
+
+        // Landscape fills the width.
+        assertThumbnailSize(
+            image: CGSize(width: 1600, height: 400),
+            compact: false,
+            width: 336,
+            height: 84
+        )
+        assertThumbnailSize(
+            image: CGSize(width: 1600, height: 900),
+            compact: false,
+            width: 336,
+            height: 189
+        )
+
+        // Portrait is height-capped with auto width.
+        assertThumbnailSize(
+            image: CGSize(width: 600, height: 1800),
+            compact: false,
+            width: 73.333,
+            height: 220
+        )
+        assertThumbnailSize(
+            image: CGSize(width: 600, height: 1800),
+            compact: true,
+            width: 66.667,
+            height: 200
+        )
+
+        // At 1:1 the height cap wins.
+        assertThumbnailSize(
+            image: CGSize(width: 800, height: 800),
+            compact: false,
+            width: 220,
+            height: 220
+        )
+        assertThumbnailSize(
+            image: CGSize(width: 800, height: 800),
+            compact: true,
+            width: 200,
+            height: 200
+        )
+    }
+
+    func testThumbnailSizeCompactStillFillsWidthForStandardLandscape() {
+        assertThumbnailSize(
+            image: CGSize(width: 1600, height: 900),
+            compact: true,
+            width: 336,
+            height: 189
+        )
+        assertThumbnailSize(
+            image: CGSize(width: 1600, height: 400),
+            compact: true,
+            width: 336,
+            height: 84
+        )
+    }
+
+    func testThumbnailSizeAtExactBoundaryAndInvalidSizes() {
+        // 336/220 is the aspect where both bounds bind.
+        assertThumbnailSize(
+            image: CGSize(width: 336, height: 220),
+            compact: false,
+            width: 336,
+            height: 220
+        )
+
+        XCTAssertEqual(
+            CardChromeStyle.thumbnailSize(for: .zero, compact: false),
+            .zero
+        )
+        XCTAssertEqual(
+            CardChromeStyle.thumbnailSize(
+                for: CGSize(width: 0, height: 100),
+                compact: false
+            ),
+            .zero
+        )
+    }
 }
