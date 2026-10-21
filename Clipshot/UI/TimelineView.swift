@@ -290,6 +290,7 @@ struct TimelineView: View {
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 5)
+            .background(HorizontalScrollWheelAdapter())
         }
     }
 
@@ -359,6 +360,7 @@ struct TimelineView: View {
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
+                .background(HorizontalScrollWheelAdapter())
             }
             .onChange(of: appState.selectedItemID) { _, newValue in
                 guard let newValue else { return }
