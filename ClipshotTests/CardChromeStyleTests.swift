@@ -79,4 +79,36 @@ final class CardChromeStyleTests: XCTestCase {
         XCTAssertFalse(CardChromeStyle.isCompact(overlayHeight: 560, alwaysCompact: false))
         XCTAssertTrue(CardChromeStyle.isCompact(overlayHeight: 560, alwaysCompact: true))
     }
+
+    func testThumbnailHeightIsFullWidthAndAspectDerived() {
+        XCTAssertEqual(CardChromeStyle.cardWidth, 360)
+        XCTAssertEqual(CardChromeStyle.thumbnailWidth, 336)
+
+        // wide, standard, tall, square
+        XCTAssertEqual(
+            CardChromeStyle.thumbnailHeight(for: CGSize(width: 1600, height: 400)),
+            84,
+            accuracy: 0.001
+        )
+        XCTAssertEqual(
+            CardChromeStyle.thumbnailHeight(for: CGSize(width: 1600, height: 900)),
+            189,
+            accuracy: 0.001
+        )
+        XCTAssertEqual(
+            CardChromeStyle.thumbnailHeight(for: CGSize(width: 600, height: 1800)),
+            1008,
+            accuracy: 0.001
+        )
+        XCTAssertEqual(
+            CardChromeStyle.thumbnailHeight(for: CGSize(width: 800, height: 800)),
+            336,
+            accuracy: 0.001
+        )
+        XCTAssertEqual(CardChromeStyle.thumbnailHeight(for: .zero), 0)
+        XCTAssertEqual(
+            CardChromeStyle.thumbnailHeight(for: CGSize(width: 0, height: 100)),
+            0
+        )
+    }
 }

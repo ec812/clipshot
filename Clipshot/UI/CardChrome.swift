@@ -4,11 +4,22 @@ import SwiftUI
 enum CardChromeStyle {
     static let cornerRadius: CGFloat = 14
     static let fullOverlayMinimum: CGFloat = 450
+    static let cardWidth: CGFloat = 360
 
     static let bandHorizontalPadding: CGFloat = 11
     static let bodyHorizontalPadding: CGFloat = 12
     static let bodyVerticalPadding: CGFloat = 10
     static let footerHorizontalPadding: CGFloat = 9
+
+    /// Inner content width available to an image thumbnail.
+    static let thumbnailWidth: CGFloat = cardWidth - bodyHorizontalPadding * 2
+
+    /// Thumbnail height derived from the image's true aspect ratio at
+    /// `thumbnailWidth`. Deliberately uncapped: tall images make tall cards.
+    static func thumbnailHeight(for imageSize: CGSize) -> CGFloat {
+        guard imageSize.width > 0, imageSize.height > 0 else { return 0 }
+        return thumbnailWidth * imageSize.height / imageSize.width
+    }
 
     static func isCompact(overlayHeight: CGFloat, alwaysCompact: Bool) -> Bool {
         alwaysCompact || overlayHeight < fullOverlayMinimum

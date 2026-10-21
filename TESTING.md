@@ -78,6 +78,7 @@ Complete every item on a real Mac (simulators do not exercise menu-bar, full-scr
 - [ ] Copy a file in **Finder** → appears as a File card with the filename.
 - [ ] Copy an image in **Preview** (select region → ⌘C) → appears as an image card; preview renders.
 - [ ] Copy an image file in **Finder** (⌘C) → the File card shows the image thumbnail, not the filename or path. Paste into Finder (⌘V) still pastes the file.
+- [ ] Image thumbnails (screenshot images and image files) span the full inner card width and preserve the image's aspect ratio without cropping. Test a wide, a standard and a very tall image; tall images produce tall cards (no height cap).
 - [ ] Select an image file in Finder and use **⌥⌘C Copy as Pathname**, then open the timeline → the card shows the image thumbnail (File kind), not the path text.
 - [ ] Copy a path to a non-image file (e.g. a PDF) or prose containing a path → unchanged (text/File as before, no thumbnail).
 - [ ] Copy rich text from **Notes** → appears as Rich Text, plain text preview visible.

@@ -29,8 +29,6 @@ struct ItemCard: View {
     let onAddToStack: () -> Void
     let pinboards: [Pinboard]
 
-    private static let minimumWidth: CGFloat = 360
-
     var body: some View {
         VStack(spacing: 0) {
             VStack(spacing: 0) {
@@ -81,7 +79,7 @@ struct ItemCard: View {
                 onRename: onRename
             )
         }
-        .frame(width: max(Self.minimumWidth, compact ? 138 : 204))
+        .frame(width: CardChromeStyle.cardWidth)
         .frame(maxHeight: .infinity)
         .background(cardBackground)
         .clipShape(
@@ -243,10 +241,9 @@ struct ItemCard: View {
     private func cardThumbnail(_ image: NSImage) -> some View {
         Image(nsImage: image)
             .resizable()
-            .aspectRatio(contentMode: .fill)
+            .aspectRatio(contentMode: .fit)
             .frame(maxWidth: .infinity)
-            .frame(height: compact ? 46 : 78)
-            .clipped()
+            .frame(height: CardChromeStyle.thumbnailHeight(for: image.size))
             .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
     }
 
