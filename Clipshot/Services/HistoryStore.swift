@@ -334,6 +334,10 @@ final class HistoryStore: ShortLinkCaching, @unchecked Sendable {
     /// the row limit is applied after narrowing; they are the store-level half of
     /// power-search syntax. `phrase` is forced into the FTS expression as an
     /// exact phrase.
+    ///
+    /// `pinboardIDs` narrows to the union of the given boards with `IN (...)`,
+    /// also before the row limit. An empty set means "no board filter" (every
+    /// board and unboarded items) rather than "match nothing".
     func search(
         _ rawQuery: String,
         kind: ClipboardItemKind? = nil,
@@ -342,6 +346,7 @@ final class HistoryStore: ShortLinkCaching, @unchecked Sendable {
         createdAtFrom: Date? = nil,
         createdAtTo: Date? = nil,
         phrase: String? = nil,
+        pinboardIDs: Set<Int64> = [],
         limit: Int = 300
     ) throws -> [ClipboardItem] {
         let ftsQuery = FTSQuery.make(from: rawQuery, phrase: phrase)
@@ -366,6 +371,9 @@ final class HistoryStore: ShortLinkCaching, @unchecked Sendable {
             }
             if let createdAtTo {
                 request = request.filter(Column("createdAt") <= createdAtTo)
+            }
+            if !pinboardIDs.isEmpty {
+                request = request.filter(pinboardIDs.contains(Column("pinboardId")))
             }
             return try dbQueue.read { db in
                 try request.limit(limit).fetchAll(db)
@@ -400,6 +408,13 @@ final class HistoryStore: ShortLinkCaching, @unchecked Sendable {
         if let createdAtTo {
             sql += " AND items.createdAt <= ?"
             _ = arguments.append(contentsOf: [createdAtTo])
+        }
+        if !pinboardIDs.isEmpty {
+            let ids = pinboardIDs.sorted()
+            let placeholders = Array(repeating: "?", count: ids.count)
+                .joined(separator: ", ")
+            sql += " AND items.pinboardId IN (\(placeholders))"
+            _ = arguments.append(contentsOf: StatementArguments(ids))
         }
         sql += " ORDER BY items.isPinned DESC, items_fts.rank, items.createdAt DESC LIMIT ?"
         _ = arguments.append(contentsOf: [limit])
