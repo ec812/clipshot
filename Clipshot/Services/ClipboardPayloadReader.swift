@@ -202,6 +202,48 @@ enum ClipboardPayloadReader {
         return url
     }
 
+    /// Normalizes a user-typed link for manual entry: trims whitespace,
+    /// prepends `https://` to a bare host, and rejects anything that is not a
+    /// usable http(s) URL with a dotted host.
+    static func normalizedURLString(from raw: String) -> String? {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty,
+              trimmed.count < 4096,
+              !trimmed.contains(where: \.isWhitespace)
+        else { return nil }
+
+        var candidate = trimmed
+        if let range = trimmed.range(
+            of: "^[A-Za-z][A-Za-z0-9+.-]*://",
+            options: .regularExpression
+        ) {
+            let scheme = trimmed[range].dropLast(3).lowercased()
+            guard scheme == "http" || scheme == "https" else { return nil }
+        } else if let range = trimmed.range(
+            of: "^[A-Za-z][A-Za-z0-9+.-]*:",
+            options: .regularExpression
+        ) {
+            let scheme = trimmed[range].dropLast(1).lowercased()
+            // A dotted prefix is a `host:port`, not a scheme.
+            if !scheme.contains(".") {
+                guard scheme == "http" || scheme == "https" else { return nil }
+            } else {
+                candidate = "https://" + trimmed
+            }
+        } else {
+            candidate = "https://" + trimmed
+        }
+
+        guard let url = URL(string: candidate),
+              let scheme = url.scheme?.lowercased(),
+              scheme == "http" || scheme == "https",
+              let host = url.host,
+              host.contains("."),
+              !host.hasPrefix(".")
+        else { return nil }
+        return url.absoluteString
+    }
+
     static func hash(kind: ClipboardItemKind, strings: [String]) -> String {
         var hasher = SHA256()
         hasher.update(data: Data(kind.rawValue.utf8))

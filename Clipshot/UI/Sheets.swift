@@ -128,12 +128,19 @@ struct EditorSheet: View {
     let request: EditorRequest
 
     @Environment(\.dismiss) private var dismiss
+    @FocusState private var textFocused: Bool
     @State private var text = ""
     @State private var title = ""
+    @State private var errorMessage: String?
+
+    private var isLinkMode: Bool {
+        request.mode == .newLink
+    }
 
     private var heading: String {
         switch request.mode {
         case .newSnippet: return "New text item"
+        case .newLink: return "New link item"
         case .editText: return "Edit item"
         case .rename: return "Rename item"
         }
@@ -144,10 +151,16 @@ struct EditorSheet: View {
             Text(heading)
                 .font(.system(size: 16, weight: .semibold))
 
-            TextField("Title (optional)", text: $title)
-                .textFieldStyle(.roundedBorder)
+            if !isLinkMode {
+                TextField("Title (optional)", text: $title)
+                    .textFieldStyle(.roundedBorder)
+            }
 
-            if request.mode != .rename {
+            if isLinkMode {
+                TextField("https://example.com", text: $text)
+                    .textFieldStyle(.roundedBorder)
+                    .focused($textFocused)
+            } else if request.mode != .rename {
                 TextEditor(text: $text)
                     .font(.system(size: 12))
                     .frame(minHeight: 180)
@@ -157,13 +170,19 @@ struct EditorSheet: View {
                     )
             }
 
+            if let errorMessage {
+                Text(errorMessage)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.red)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
             HStack {
                 Spacer()
                 Button("Cancel") { dismiss() }
                     .keyboardShortcut(.cancelAction)
                 Button("Save") {
-                    appState.saveEditor(request, text: text, title: title)
-                    dismiss()
+                    save()
                 }
                 .keyboardShortcut(.defaultAction)
             }
@@ -173,7 +192,21 @@ struct EditorSheet: View {
         .onAppear {
             text = request.item?.text ?? ""
             title = request.item?.title ?? ""
+            textFocused = isLinkMode
         }
+        .onChange(of: text) { _, _ in
+            errorMessage = nil
+        }
+    }
+
+    private func save() {
+        if isLinkMode,
+           ClipboardPayloadReader.normalizedURLString(from: text) == nil {
+            errorMessage = "Enter a valid link, for example example.com."
+            return
+        }
+        appState.saveEditor(request, text: text, title: title)
+        dismiss()
     }
 }
 

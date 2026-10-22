@@ -56,6 +56,7 @@
 		A1B2C3D4E5F60718293A4C04 /* HorizontalScrollWheelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4C03 /* HorizontalScrollWheelTests.swift */; };
 		A1B2C3D4E5F60718293A4C06 /* ItemCardClickTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4C05 /* ItemCardClickTests.swift */; };
 		B04A11E700000000000000A1 /* AppStateRevealTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B04A11E700000000000000A2 /* AppStateRevealTests.swift */; };
+		B04A11E900000000000000A1 /* AppStateEditorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B04A11E900000000000000A2 /* AppStateEditorTests.swift */; };
 		A1B2C3D4E5F60718293A4D02 /* CodeDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4D01 /* CodeDetector.swift */; };
 		A1B2C3D4E5F60718293A4D08 /* CodeDetectorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4D07 /* CodeDetectorTests.swift */; };
 		A1B2C3D4E5F60718293A4D04 /* CodeHighlighter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4D03 /* CodeHighlighter.swift */; };
@@ -145,6 +146,7 @@
 		A1B2C3D4E5F60718293A4C03 /* HorizontalScrollWheelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipshotTests/HorizontalScrollWheelTests.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F60718293A4C05 /* ItemCardClickTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipshotTests/ItemCardClickTests.swift; sourceTree = "<group>"; };
 		B04A11E700000000000000A2 /* AppStateRevealTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipshotTests/AppStateRevealTests.swift; sourceTree = "<group>"; };
+		B04A11E900000000000000A2 /* AppStateEditorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipshotTests/AppStateEditorTests.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F60718293A4D01 /* CodeDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Clipshot/Services/CodeDetector.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F60718293A4D07 /* CodeDetectorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipshotTests/CodeDetectorTests.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F60718293A4D03 /* CodeHighlighter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Clipshot/UI/CodeHighlighter.swift; sourceTree = "<group>"; };
@@ -286,6 +288,7 @@
 				A1B2C3D4E5F60718293A4C03 /* HorizontalScrollWheelTests.swift */,
 				A1B2C3D4E5F60718293A4C05 /* ItemCardClickTests.swift */,
 				B04A11E700000000000000A2 /* AppStateRevealTests.swift */,
+				B04A11E900000000000000A2 /* AppStateEditorTests.swift */,
 				A1B2C3D4E5F60718293A4D07 /* CodeDetectorTests.swift */,
 				A1B2C3D4E5F60718293A4D09 /* CodeHighlighterTests.swift */,
 				A1B2C3D4E5F60718293A4D0B /* CodeHighlightStoreTests.swift */,
@@ -489,6 +492,7 @@
 				A1B2C3D4E5F60718293A4C04 /* HorizontalScrollWheelTests.swift in Sources */,
 				A1B2C3D4E5F60718293A4C06 /* ItemCardClickTests.swift in Sources */,
 				B04A11E700000000000000A1 /* AppStateRevealTests.swift in Sources */,
+				B04A11E900000000000000A1 /* AppStateEditorTests.swift in Sources */,
 				A1B2C3D4E5F60718293A4D08 /* CodeDetectorTests.swift in Sources */,
 				A1B2C3D4E5F60718293A4D0A /* CodeHighlighterTests.swift in Sources */,
 				A1B2C3D4E5F60718293A4D0C /* CodeHighlightStoreTests.swift in Sources */,

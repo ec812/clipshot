@@ -2,6 +2,7 @@ import Foundation
 
 enum EditorMode: String, Identifiable {
     case newSnippet
+    case newLink
     case editText
     case rename
 

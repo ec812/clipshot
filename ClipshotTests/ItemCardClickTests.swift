@@ -40,6 +40,8 @@ final class ItemCardClickTests: XCTestCase {
             onEdit: {},
             onRename: {},
             onAddToStack: {},
+            onNewTextItem: {},
+            onNewLinkItem: {},
             pinboards: []
         )
     }

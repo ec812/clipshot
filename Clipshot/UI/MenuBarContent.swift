@@ -24,6 +24,13 @@ struct MenuBarContent: View {
             appState.overlayController.show()
             appState.beginNewSnippet()
         }
+        .keyboardShortcut("n", modifiers: .command)
+
+        Button("New Link Item…") {
+            appState.overlayController.show()
+            appState.beginNewLink()
+        }
+        .keyboardShortcut("n", modifiers: [.command, .shift])
 
         Divider()
 
