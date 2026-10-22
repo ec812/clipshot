@@ -330,13 +330,21 @@ final class HistoryStore: ShortLinkCaching, @unchecked Sendable {
         }
     }
 
+    /// `sourceAppOrBundleId` and `createdAtFrom`/`createdAtTo` filter in SQL so
+    /// the row limit is applied after narrowing; they are the store-level half of
+    /// power-search syntax. `phrase` is forced into the FTS expression as an
+    /// exact phrase.
     func search(
         _ rawQuery: String,
         kind: ClipboardItemKind? = nil,
         bundleId: String? = nil,
+        sourceAppOrBundleId: String? = nil,
+        createdAtFrom: Date? = nil,
+        createdAtTo: Date? = nil,
+        phrase: String? = nil,
         limit: Int = 300
     ) throws -> [ClipboardItem] {
-        let ftsQuery = FTSQuery.make(from: rawQuery)
+        let ftsQuery = FTSQuery.make(from: rawQuery, phrase: phrase)
         guard !ftsQuery.isEmpty else {
             var request = ClipboardItem
                 .order(Column("isPinned").desc, Column("createdAt").desc)
@@ -345,6 +353,19 @@ final class HistoryStore: ShortLinkCaching, @unchecked Sendable {
             }
             if let bundleId {
                 request = request.filter(Column("bundleId") == bundleId)
+            }
+            if let sourceAppOrBundleId {
+                let sourceApp = Column("sourceApp").collating(.nocase)
+                    == sourceAppOrBundleId
+                let bundle = Column("bundleId").collating(.nocase)
+                    == sourceAppOrBundleId
+                request = request.filter(sourceApp || bundle)
+            }
+            if let createdAtFrom {
+                request = request.filter(Column("createdAt") >= createdAtFrom)
+            }
+            if let createdAtTo {
+                request = request.filter(Column("createdAt") <= createdAtTo)
             }
             return try dbQueue.read { db in
                 try request.limit(limit).fetchAll(db)
@@ -365,6 +386,20 @@ final class HistoryStore: ShortLinkCaching, @unchecked Sendable {
         if let bundleId {
             sql += " AND items.bundleId = ?"
             _ = arguments.append(contentsOf: [bundleId])
+        }
+        if let sourceAppOrBundleId {
+            sql += " AND (items.sourceApp = ? COLLATE NOCASE OR items.bundleId = ? COLLATE NOCASE)"
+            _ = arguments.append(
+                contentsOf: [sourceAppOrBundleId, sourceAppOrBundleId]
+            )
+        }
+        if let createdAtFrom {
+            sql += " AND items.createdAt >= ?"
+            _ = arguments.append(contentsOf: [createdAtFrom])
+        }
+        if let createdAtTo {
+            sql += " AND items.createdAt <= ?"
+            _ = arguments.append(contentsOf: [createdAtTo])
         }
         sql += " ORDER BY items.isPinned DESC, items_fts.rank, items.createdAt DESC LIMIT ?"
         _ = arguments.append(contentsOf: [limit])
@@ -616,17 +651,26 @@ final class HistoryStore: ShortLinkCaching, @unchecked Sendable {
 enum FTSQuery {
     /// Turns free-form input into a safe FTS5 MATCH expression.
     /// Every token is quoted and prefix-matched so `goo` finds `google.com`.
-    static func make(from raw: String) -> String {
-        let tokens = raw
+    /// An optional `phrase` is appended as a quoted, non-prefix term so the
+    /// words must appear adjacent.
+    static func make(from raw: String, phrase: String? = nil) -> String {
+        var terms: [String] = raw
             .split(whereSeparator: { $0.isWhitespace || $0.isPunctuation || $0.isSymbol })
             .map(String.init)
             .filter { !$0.isEmpty }
-        guard !tokens.isEmpty else { return "" }
-        return tokens
             .map { token in
                 let escaped = token.replacingOccurrences(of: "\"", with: "")
                 return "\"\(escaped)\"*"
             }
-            .joined(separator: " AND ")
+
+        if let phrase {
+            let trimmed = phrase.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmed.isEmpty {
+                let escaped = trimmed.replacingOccurrences(of: "\"", with: "")
+                terms.append("\"\(escaped)\"")
+            }
+        }
+
+        return terms.joined(separator: " AND ")
     }
 }

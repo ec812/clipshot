@@ -237,6 +237,13 @@ final class AppState: ObservableObject {
         }
     }
 
+    /// Applies the filter chips and the typed search-bar syntax together: they
+    /// always intersect (AND). Typed `kind:`/`from:`/`date:`/`pinboard:` clauses
+    /// narrow the chip selection instead of replacing it, so a contradiction such
+    /// as chip = Link plus `kind:text` intentionally yields no results.
+    ///
+    /// Both states stay in effect; whichever one wrote last (through the `didSet`
+    /// handlers above) drives this reload.
     func reload() {
         reloadGeneration &+= 1
         let generation = reloadGeneration
@@ -245,14 +252,55 @@ final class AppState: ObservableObject {
         let bundleId = filterBundleId
         let pinnedOnly = filterPinnedOnly
         let pinboardID = filterPinboardID
+        let parsed = SearchQueryParser.parse(query)
+        let now = Date()
+
+        var freeText = parsed.freeText
+        var parsedPinboardID: Int64?
+        if let name = parsed.pinboardName {
+            if let board = pinboards.first(where: {
+                $0.name.compare(name, options: [.caseInsensitive]) == .orderedSame
+            }) {
+                parsedPinboardID = board.id
+            } else {
+                // Unknown pinboard name: keep the words searchable rather than
+                // silently hiding every row.
+                freeText = [freeText, name]
+                    .filter { !$0.isEmpty }
+                    .joined(separator: " ")
+            }
+        }
+
+        let dateInterval = parsed.dateFilter?.interval(now: now)
+        let kindConflict = kind != nil && parsed.kind != nil && kind != parsed.kind
+        let pinboardConflict = pinboardID != nil
+            && parsedPinboardID != nil
+            && pinboardID != parsedPinboardID
+        let effectiveKind = kind ?? parsed.kind
+        let effectivePinboardID = pinboardID ?? parsedPinboardID
         let store = self.store
 
         Task.detached(priority: .userInitiated) {
             do {
-                let results = try store.search(query, kind: kind, bundleId: bundleId)
+                let results: [ClipboardItem]
+                if kindConflict || pinboardConflict {
+                    results = []
+                } else {
+                    results = try store.search(
+                        freeText,
+                        kind: effectiveKind,
+                        bundleId: bundleId,
+                        sourceAppOrBundleId: parsed.fromApp,
+                        createdAtFrom: dateInterval?.start,
+                        createdAtTo: dateInterval?.end,
+                        phrase: parsed.phrase
+                    )
+                }
                 let loaded = results.filter { item in
                     if pinnedOnly && !item.isPinned { return false }
-                    if let pinboardID, item.pinboardId != pinboardID { return false }
+                    if let effectivePinboardID, item.pinboardId != effectivePinboardID {
+                        return false
+                    }
                     return true
                 }
                 let sources = try store.distinctSources()
