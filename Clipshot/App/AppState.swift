@@ -33,6 +33,11 @@ final class AppState: ObservableObject {
 
     @Published var items: [ClipboardItem] = []
     @Published var selectedItemID: Int64?
+    /// Set by `reveal(_:)` when clearing a filter starts an asynchronous reload.
+    /// The timeline re-centers this id after the reloaded items land, then
+    /// acknowledges it. Without this, the selection scroll would run against
+    /// the still-filtered list and the item could land off-center.
+    @Published private(set) var revealTargetID: Int64?
     @Published var searchText: String = "" {
         didSet { scheduleReload() }
     }
@@ -318,6 +323,15 @@ final class AppState: ObservableObject {
         return items.first { $0.id == selectedItemID }
     }
 
+    /// True when the timeline is narrowed by a search query or any filter.
+    var hasActiveFilter: Bool {
+        !searchText.isEmpty
+            || filterKind != nil
+            || filterBundleId != nil
+            || filterPinnedOnly
+            || filterPinboardID != nil
+    }
+
     func moveSelection(by delta: Int) {
         guard !items.isEmpty else { return }
         let currentIndex = items.firstIndex { $0.id == selectedItemID } ?? 0
@@ -327,6 +341,56 @@ final class AppState: ObservableObject {
 
     func select(_ item: ClipboardItem) {
         selectedItemID = item.id
+    }
+
+    /// Clears the search query and any filter that would hide `item`, then
+    /// selects it so the timeline's selection scroll centers it in the
+    /// unfiltered history.
+    ///
+    /// Reveal semantics:
+    /// 1. Clear `searchText`.
+    /// 2. Clear `filterKind`, `filterBundleId`, `filterPinnedOnly`.
+    /// 3. Keep `filterPinboardID` when it already shows the item; otherwise
+    ///    point it at the item's own board (or clear it when the item has none).
+    /// 4. Select the item last. Clearing a filter reloads asynchronously, so the
+    ///    selection is set before that reload publishes; `reload()` keeps it
+    ///    because the reloaded (unfiltered) set contains the item.
+    func reveal(_ item: ClipboardItem) {
+        var reloadStarted = false
+
+        if !searchText.isEmpty {
+            searchText = ""
+            reloadStarted = true
+        }
+        if filterKind != nil {
+            filterKind = nil
+            reloadStarted = true
+        }
+        if filterBundleId != nil {
+            filterBundleId = nil
+            reloadStarted = true
+        }
+        if filterPinnedOnly {
+            filterPinnedOnly = false
+            reloadStarted = true
+        }
+        if let board = filterPinboardID, board != item.pinboardId {
+            filterPinboardID = item.pinboardId
+            reloadStarted = true
+        }
+
+        // The selection is set immediately, but a reload is already in flight.
+        // Remember the target so the timeline can re-center once the unfiltered
+        // items replace the filtered ones.
+        if reloadStarted, let id = item.id {
+            revealTargetID = id
+        }
+        selectedItemID = item.id
+    }
+
+    /// Called by the timeline after it re-centers a reveal target.
+    func acknowledgeReveal() {
+        revealTargetID = nil
     }
 
     private func handleCaptured(_ item: ClipboardItem) {

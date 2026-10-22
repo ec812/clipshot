@@ -12,8 +12,10 @@ struct ItemCard: View {
     let linkPreviews: LinkPreviewStore
     let fetchLinkPreviews: Bool
     let isPaused: Bool
+    let isFiltered: Bool
 
     let onSelect: () -> Void
+    let onJumpToHistory: () -> Void
     let onPaste: () -> Void
     let onCopy: () -> Void
     let onPlainPaste: () -> Void
@@ -285,6 +287,10 @@ struct ItemCard: View {
         Button("Copy") { onCopy() }
         if displayKind == .image {
             Button("Extract Text") { onExtractText() }
+        }
+        if isFiltered {
+            Divider()
+            Button("Jump to History") { onJumpToHistory() }
         }
         if displayKind == .text {
             if codeHighlight.isCode(for: item) {
