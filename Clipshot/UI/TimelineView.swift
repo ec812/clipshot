@@ -359,6 +359,8 @@ struct TimelineView: View {
                             onEdit: { appState.beginEdit(item) },
                             onRename: { appState.beginRename(item) },
                             onAddToStack: { appState.enqueueForPasteStack([item]) },
+                            onNewTextItem: { appState.beginNewSnippet() },
+                            onNewLinkItem: { appState.beginNewLink() },
                             pinboards: appState.pinboards
                         )
                         .id(item.id)
@@ -411,6 +413,10 @@ struct TimelineView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding()
+        .contextMenu {
+            Button("New Text Item (⌘N)") { appState.beginNewSnippet() }
+            Button("New Link Item… (⌘⇧N)") { appState.beginNewLink() }
+        }
     }
 
     private var footer: some View {

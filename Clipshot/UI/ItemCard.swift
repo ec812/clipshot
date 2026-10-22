@@ -30,6 +30,8 @@ struct ItemCard: View {
     let onEdit: () -> Void
     let onRename: () -> Void
     let onAddToStack: () -> Void
+    let onNewTextItem: () -> Void
+    let onNewLinkItem: () -> Void
     let pinboards: [Pinboard]
 
     var body: some View {
@@ -282,6 +284,9 @@ struct ItemCard: View {
 
     @ViewBuilder
     private var contextMenu: some View {
+        Button("New Text Item (⌘N)") { onNewTextItem() }
+        Button("New Link Item… (⌘⇧N)") { onNewLinkItem() }
+        Divider()
         Button("Paste") { onPaste() }
         Button("Paste as Plain Text") { onPlainPaste() }
         Button("Copy") { onCopy() }
