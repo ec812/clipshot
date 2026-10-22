@@ -31,6 +31,7 @@ final class ItemCardClickTests: XCTestCase {
             onQR: {},
             onQROriginal: {},
             onPin: {},
+            onExtractText: {},
             onAddToPinboard: { _ in },
             onRemoveFromPinboard: {},
             onDelete: {},
