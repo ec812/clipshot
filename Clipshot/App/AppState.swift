@@ -789,6 +789,10 @@ final class AppState: ObservableObject {
         editorRequest = EditorRequest(mode: .newSnippet, item: nil)
     }
 
+    func beginNewLink() {
+        editorRequest = EditorRequest(mode: .newLink, item: nil)
+    }
+
     func beginEdit(_ item: ClipboardItem) {
         editorRequest = EditorRequest(mode: .editText, item: item)
     }
@@ -799,9 +803,21 @@ final class AppState: ObservableObject {
 
     func saveEditor(_ request: EditorRequest, text: String, title: String) {
         let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard request.mode != .newSnippet
-            || !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        else { return }
+        let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        let normalizedLink: String?
+        switch request.mode {
+        case .newSnippet:
+            guard !trimmedText.isEmpty else { return }
+            normalizedLink = nil
+        case .newLink:
+            guard let normalized = ClipboardPayloadReader.normalizedURLString(from: text) else {
+                return
+            }
+            normalizedLink = normalized
+        case .editText, .rename:
+            normalizedLink = nil
+        }
 
         performStoreWrite({ store in
             switch request.mode {
@@ -810,6 +826,18 @@ final class AppState: ObservableObject {
                 _ = try store.insert(
                     kind: .text,
                     text: text,
+                    title: trimmedTitle.isEmpty ? nil : trimmedTitle,
+                    sourceApp: "Clipshot",
+                    bundleId: "com.ernest.clipshot",
+                    hash: hash,
+                    isSnippet: true
+                )
+            case .newLink:
+                guard let normalizedLink else { return }
+                let hash = ClipboardPayloadReader.hash(kind: .url, strings: [normalizedLink])
+                _ = try store.insert(
+                    kind: .url,
+                    text: normalizedLink,
                     title: trimmedTitle.isEmpty ? nil : trimmedTitle,
                     sourceApp: "Clipshot",
                     bundleId: "com.ernest.clipshot",
@@ -1137,6 +1165,12 @@ final class AppState: ObservableObject {
         }
 
         if flags.contains(.command) {
+            // ⌘⇧N is free (⌘⇧V opens the overlay); reserve it for links before
+            // the plain ⌘N case below sees the same key code.
+            if flags.contains(.shift), keyCode == kVK_ANSI_N {
+                beginNewLink()
+                return true
+            }
             switch keyCode {
             case kVK_ANSI_N:
                 beginNewSnippet()
