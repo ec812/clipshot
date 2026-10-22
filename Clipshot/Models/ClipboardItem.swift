@@ -39,6 +39,7 @@ struct ClipboardItem: Identifiable, Equatable, Codable, FetchableRecord, Mutable
     var kind: ClipboardItemKind
     var text: String?
     var title: String?
+    var ocrText: String?
     var dataPath: String?
     var sourceApp: String?
     var bundleId: String?
@@ -54,6 +55,7 @@ struct ClipboardItem: Identifiable, Equatable, Codable, FetchableRecord, Mutable
         kind: ClipboardItemKind,
         text: String?,
         title: String? = nil,
+        ocrText: String? = nil,
         dataPath: String? = nil,
         sourceApp: String? = nil,
         bundleId: String? = nil,
@@ -68,6 +70,7 @@ struct ClipboardItem: Identifiable, Equatable, Codable, FetchableRecord, Mutable
         self.kind = kind
         self.text = text
         self.title = title
+        self.ocrText = ocrText
         self.dataPath = dataPath
         self.sourceApp = sourceApp
         self.bundleId = bundleId
