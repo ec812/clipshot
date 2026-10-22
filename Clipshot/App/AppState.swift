@@ -11,6 +11,7 @@ final class AppState: ObservableObject {
     let privacyFilter: PrivacyFilter
     let rulesEngine: ShortenRulesEngine
     let dataStore: ItemDataStore
+    let dragTemp: DragTempStore
     let ocrEngine: OCREngine
     let keychain: APIKeyStoring
     let registry: ShortenerBackendRegistry
@@ -125,6 +126,7 @@ final class AppState: ObservableObject {
         self.privacyFilter = privacy
         self.rulesEngine = rules
         self.dataStore = resolvedDataStore
+        self.dragTemp = DragTempStore()
         self.ocrEngine = ocrEngine
         self.keychain = resolvedKeychain
         self.registry = ShortenerBackendRegistry.shared
@@ -172,7 +174,11 @@ final class AppState: ObservableObject {
 
         let store = self.store
         let retentionDays = settings.retentionDays
+        let dragTemp = self.dragTemp
         Task.detached(priority: .userInitiated) {
+            // Drag copies are never deleted on drag end (drop targets read
+            // asynchronously), so age-based cleanup happens at startup.
+            dragTemp.sweepStale()
             var migrated = false
             do {
                 try store.migrateIfNeeded()
@@ -577,6 +583,22 @@ final class AppState: ObservableObject {
                 break
             case .copiedToClipboard:
                 self.showToast("Copied — Accessibility permission is needed to paste directly")
+            case .failed(let message):
+                self.showToast(message)
+            }
+        }
+    }
+
+    func pasteAsFile(_ item: ClipboardItem) {
+        overlayController.hide()
+        Task { [weak self] in
+            guard let self else { return }
+            let outcome = await self.pasteEngine.pasteAsFile(item)
+            switch outcome {
+            case .pasted:
+                break
+            case .copiedToClipboard:
+                self.showToast("Copied file — Accessibility permission is needed to paste directly")
             case .failed(let message):
                 self.showToast(message)
             }
