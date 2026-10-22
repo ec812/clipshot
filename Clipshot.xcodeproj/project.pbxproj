@@ -66,6 +66,7 @@
 		A1B2C3D4E5F60718293A4E04 /* OCREngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4E03 /* OCREngineTests.swift */; };
 		A1B2C3D4E5F60718293A4F02 /* MCPProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4F01 /* MCPProtocol.swift */; };
 		A1B2C3D4E5F60718293A4F04 /* MCPToolRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4F03 /* MCPToolRouter.swift */; };
+		A1B2C3D4E5F60718293A4F06 /* MCPServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4F05 /* MCPServer.swift */; };
 		2D96D85B345BB8E0E1A30DCF /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA67F574EDA0941671DDC700 /* SettingsView.swift */; };
 		10BC506F97B32BBBEEECDAAE /* AppIconAccentTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 183DAD0119070DA722A3C428 /* AppIconAccentTests.swift */; };
 		0AAC5192A5179E8704162B28 /* BitlyBackendTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF8CADCAF62CEABE04BF9314 /* BitlyBackendTests.swift */; };
@@ -151,6 +152,7 @@
 		A1B2C3D4E5F60718293A4E03 /* OCREngineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipshotTests/OCREngineTests.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F60718293A4F01 /* MCPProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Clipshot/Services/MCP/MCPProtocol.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F60718293A4F03 /* MCPToolRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Clipshot/Services/MCP/MCPToolRouter.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F60718293A4F05 /* MCPServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Clipshot/Services/MCP/MCPServer.swift; sourceTree = "<group>"; };
 		BA67F574EDA0941671DDC700 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Clipshot/UI/Settings/SettingsView.swift; sourceTree = "<group>"; };
 		183DAD0119070DA722A3C428 /* AppIconAccentTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipshotTests/AppIconAccentTests.swift; sourceTree = "<group>"; };
 		BF8CADCAF62CEABE04BF9314 /* BitlyBackendTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipshotTests/BitlyBackendTests.swift; sourceTree = "<group>"; };
@@ -252,6 +254,7 @@
 				A1B2C3D4E5F60718293A4D05 /* CodeHighlightStore.swift */,
 				A1B2C3D4E5F60718293A4F01 /* MCPProtocol.swift */,
 				A1B2C3D4E5F60718293A4F03 /* MCPToolRouter.swift */,
+				A1B2C3D4E5F60718293A4F05 /* MCPServer.swift */,
 				BA67F574EDA0941671DDC700 /* SettingsView.swift */,
 			);
 			name = Clipshot;
@@ -451,6 +454,7 @@
 				A1B2C3D4E5F60718293A4D06 /* CodeHighlightStore.swift in Sources */,
 				A1B2C3D4E5F60718293A4F02 /* MCPProtocol.swift in Sources */,
 				A1B2C3D4E5F60718293A4F04 /* MCPToolRouter.swift in Sources */,
+				A1B2C3D4E5F60718293A4F06 /* MCPServer.swift in Sources */,
 				2D96D85B345BB8E0E1A30DCF /* SettingsView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
