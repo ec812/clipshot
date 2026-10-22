@@ -11,6 +11,7 @@ final class AppState: ObservableObject {
     let privacyFilter: PrivacyFilter
     let rulesEngine: ShortenRulesEngine
     let dataStore: ItemDataStore
+    let ocrEngine: OCREngine
     let keychain: APIKeyStoring
     let registry: ShortenerBackendRegistry
     let monitor: ClipboardMonitor
@@ -83,7 +84,8 @@ final class AppState: ObservableObject {
         settings: AppSettings? = nil,
         keychain: APIKeyStoring? = nil,
         startMonitoring: Bool = true,
-        dataStore: ItemDataStore? = nil
+        dataStore: ItemDataStore? = nil,
+        ocrEngine: OCREngine = VisionOCREngine()
     ) {
         let resolvedSettings = settings ?? AppSettings()
         let resolvedKeychain = keychain ?? KeychainStore()
@@ -113,6 +115,7 @@ final class AppState: ObservableObject {
         self.privacyFilter = privacy
         self.rulesEngine = rules
         self.dataStore = resolvedDataStore
+        self.ocrEngine = ocrEngine
         self.keychain = resolvedKeychain
         self.registry = ShortenerBackendRegistry.shared
         self.startMonitoring = startMonitoring
@@ -437,6 +440,39 @@ final class AppState: ObservableObject {
             }
             try store.deleteItem(id: id)
         })
+    }
+
+    // MARK: - OCR
+
+    func extractTextFromImage(_ item: ClipboardItem) {
+        guard item.kind == .image, let itemID = item.id, let path = item.dataPath else {
+            showToast("Only images can be read")
+            return
+        }
+
+        let store = self.store
+        let engine = ocrEngine
+        let url = URL(fileURLWithPath: path)
+
+        Task { [weak self] in
+            guard let self else { return }
+            do {
+                let recognized = try await engine.recognizeText(inImageAt: url)
+                let text = recognized.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !text.isEmpty else {
+                    self.showToast("No text found")
+                    return
+                }
+                try await Task.detached(priority: .userInitiated) {
+                    try store.updateOcrText(text, for: itemID)
+                }.value
+                self.reload()
+                self.pasteEngine.copyText(text)
+                self.showToast("Text extracted")
+            } catch {
+                self.showToast("Could not extract text")
+            }
+        }
     }
 
     func createPinboard(name: String, colorHex: String) {

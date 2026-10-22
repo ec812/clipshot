@@ -21,6 +21,7 @@ struct ItemCard: View {
     let onQR: () -> Void
     let onQROriginal: () -> Void
     let onPin: () -> Void
+    let onExtractText: () -> Void
     let onAddToPinboard: (Pinboard) -> Void
     let onRemoveFromPinboard: () -> Void
     let onDelete: () -> Void
@@ -282,6 +283,9 @@ struct ItemCard: View {
         Button("Paste") { onPaste() }
         Button("Paste as Plain Text") { onPlainPaste() }
         Button("Copy") { onCopy() }
+        if displayKind == .image {
+            Button("Extract Text") { onExtractText() }
+        }
         if displayKind == .text {
             if codeHighlight.isCode(for: item) {
                 Button("Show as Plain Text") {

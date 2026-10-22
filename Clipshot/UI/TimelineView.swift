@@ -352,6 +352,7 @@ struct TimelineView: View {
                             onQR: { appState.showQR(for: item) },
                             onQROriginal: { appState.showQR(for: item, preferShort: false) },
                             onPin: { appState.togglePin(item) },
+                            onExtractText: { appState.extractTextFromImage(item) },
                             onAddToPinboard: { pinboard in
                                 appState.addToPinboard(item, pinboard: pinboard)
                             },
