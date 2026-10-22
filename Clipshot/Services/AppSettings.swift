@@ -46,6 +46,11 @@ final class AppSettings: ObservableObject {
     @Published var backendDefaultTags: String { didSet { defaults.set(backendDefaultTags, forKey: Keys.backendDefaultTags) } }
     @Published var hasCompletedOnboarding: Bool { didSet { defaults.set(hasCompletedOnboarding, forKey: Keys.hasCompletedOnboarding) } }
     @Published var warnWhenPasteRunning: Bool { didSet { defaults.set(warnWhenPasteRunning, forKey: Keys.warnWhenPasteRunning) } }
+    @Published var mcpEnabled: Bool { didSet { defaults.set(mcpEnabled, forKey: Keys.mcpEnabled) } }
+    @Published var mcpToken: String { didSet { defaults.set(mcpToken, forKey: Keys.mcpToken) } }
+    /// Actual URL of the running server. Runtime-only: the bound port is only
+    /// known after the listener starts, so it is never persisted.
+    @Published var mcpURL: String?
 
     private var hotkeys: [String: Hotkey]
 
@@ -81,6 +86,9 @@ final class AppSettings: ObservableObject {
         self.backendDefaultTags = defaults.string(forKey: Keys.backendDefaultTags) ?? ""
         self.hasCompletedOnboarding = defaults.bool(forKey: Keys.hasCompletedOnboarding)
         self.warnWhenPasteRunning = defaults.object(forKey: Keys.warnWhenPasteRunning) as? Bool ?? true
+        self.mcpEnabled = defaults.object(forKey: Keys.mcpEnabled) as? Bool ?? false
+        self.mcpToken = defaults.string(forKey: Keys.mcpToken) ?? ""
+        self.mcpURL = nil
 
         var stored: [String: Hotkey] = [:]
         if let data = defaults.data(forKey: Keys.hotkeys),
@@ -151,6 +159,8 @@ final class AppSettings: ObservableObject {
         static let backendDefaultTags = "settings.backendDefaultTags"
         static let hasCompletedOnboarding = "settings.hasCompletedOnboarding"
         static let warnWhenPasteRunning = "settings.warnWhenPasteRunning"
+        static let mcpEnabled = "settings.mcpEnabled"
+        static let mcpToken = "settings.mcpToken"
         static let hotkeys = "settings.hotkeys"
     }
 }
