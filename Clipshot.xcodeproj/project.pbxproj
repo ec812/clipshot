@@ -28,6 +28,7 @@
 		683A97F5CD265E90A6E472A9 /* HotkeyManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C460535B2F313D04C42036A /* HotkeyManager.swift */; };
 		81B0BD296A94A6E6F79F07E5 /* ItemDataStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23653EFF34311D10FF1F693E /* ItemDataStore.swift */; };
 		D7A9C1E30000000000000002 /* DragTempStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7A9C1E30000000000000001 /* DragTempStore.swift */; };
+		D7A9C1E30000000000000004 /* DragAndPasteFileTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7A9C1E30000000000000003 /* DragAndPasteFileTests.swift */; };
 		5D7519FF975715B840E4A0A0 /* KeychainStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B9D565EA50949DEA42BE6DA /* KeychainStore.swift */; };
 		02AD923506D11D740C4F0C3C /* LaunchAtLogin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 196698D5C3B3964EC309163E /* LaunchAtLogin.swift */; };
 		667F7287D6C1FC7708185266 /* LinkPreviewStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AC5876F7691D8E56DAB27E2 /* LinkPreviewStore.swift */; };
@@ -120,6 +121,7 @@
 		2C460535B2F313D04C42036A /* HotkeyManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Clipshot/Services/HotkeyManager.swift; sourceTree = "<group>"; };
 		23653EFF34311D10FF1F693E /* ItemDataStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Clipshot/Services/ItemDataStore.swift; sourceTree = "<group>"; };
 		D7A9C1E30000000000000001 /* DragTempStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Clipshot/Services/DragTempStore.swift; sourceTree = "<group>"; };
+		D7A9C1E30000000000000003 /* DragAndPasteFileTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipshotTests/DragAndPasteFileTests.swift; sourceTree = "<group>"; };
 		9B9D565EA50949DEA42BE6DA /* KeychainStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Clipshot/Services/KeychainStore.swift; sourceTree = "<group>"; };
 		196698D5C3B3964EC309163E /* LaunchAtLogin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Clipshot/Services/LaunchAtLogin.swift; sourceTree = "<group>"; };
 		8AC5876F7691D8E56DAB27E2 /* LinkPreviewStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Clipshot/Services/LinkPreviewStore.swift; sourceTree = "<group>"; };
@@ -288,6 +290,7 @@
 				1CCB7DDFB1D34B9250E885D4 /* ResizeHandleTests.swift */,
 				7FC774F68F71CD5CFE7FAEA7 /* ShortenRulesEngineTests.swift */,
 				0E70FE57C2DED784E40B9ACC /* SingleInstanceGuardTests.swift */,
+				D7A9C1E30000000000000003 /* DragAndPasteFileTests.swift */,
 				A1B2C3D4E5F60718293A4C03 /* HorizontalScrollWheelTests.swift */,
 				A1B2C3D4E5F60718293A4C05 /* ItemCardClickTests.swift */,
 				B04A11E700000000000000A2 /* AppStateRevealTests.swift */,
@@ -493,6 +496,7 @@
 				2AE3142997A713A9F50FA265 /* ResizeHandleTests.swift in Sources */,
 				653BA1AAB4727C379CD05DB2 /* ShortenRulesEngineTests.swift in Sources */,
 				41F42F6E317397D68EE34E40 /* SingleInstanceGuardTests.swift in Sources */,
+				D7A9C1E30000000000000004 /* DragAndPasteFileTests.swift in Sources */,
 				A1B2C3D4E5F60718293A4C04 /* HorizontalScrollWheelTests.swift in Sources */,
 				A1B2C3D4E5F60718293A4C06 /* ItemCardClickTests.swift in Sources */,
 				B04A11E700000000000000A1 /* AppStateRevealTests.swift in Sources */,
