@@ -344,7 +344,9 @@ struct TimelineView: View {
                             linkPreviews: appState.linkPreviews,
                             fetchLinkPreviews: appState.settings.fetchLinkPreviews,
                             isPaused: appState.isPaused,
+                            isFiltered: appState.hasActiveFilter,
                             onSelect: { appState.select(item) },
+                            onJumpToHistory: { appState.reveal(item) },
                             onPaste: { appState.paste(item) },
                             onCopy: { appState.copy(item) },
                             onPlainPaste: { appState.paste(item, plainText: true) },
@@ -375,6 +377,18 @@ struct TimelineView: View {
                 withAnimation(.easeOut(duration: 0.15)) {
                     proxy.scrollTo(newValue, anchor: .center)
                 }
+            }
+            .onChange(of: appState.items) { _, items in
+                // A reveal clears filters and reloads asynchronously. Center the
+                // target again once the unfiltered items have replaced the
+                // filtered ones, where the item has a different position.
+                guard let target = appState.revealTargetID else { return }
+                if items.contains(where: { $0.id == target }) {
+                    withAnimation(.easeOut(duration: 0.15)) {
+                        proxy.scrollTo(target, anchor: .center)
+                    }
+                }
+                appState.acknowledgeReveal()
             }
         }
     }
