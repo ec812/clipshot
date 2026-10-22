@@ -433,6 +433,119 @@ final class HistoryStoreTests: XCTestCase {
         )
     }
 
+    // MARK: - Pinboard set filter
+
+    func testSearchFiltersByPinboardSetAsUnion() throws {
+        let design = try store.createPinboard(name: "Design", colorHex: "#FF0000")
+        let remote = try store.createPinboard(name: "Remote", colorHex: "#00FF00")
+        let designID = try XCTUnwrap(design.id)
+        let remoteID = try XCTUnwrap(remote.id)
+
+        let designItem = try store.insert(kind: .text, text: "design note", hash: "ps-design").item
+        let remoteItem = try store.insert(kind: .text, text: "remote note", hash: "ps-remote").item
+        _ = try store.insert(kind: .text, text: "loose note", hash: "ps-loose")
+        try store.addItem(try XCTUnwrap(designItem.id), toPinboard: designID)
+        try store.addItem(try XCTUnwrap(remoteItem.id), toPinboard: remoteID)
+
+        // Two boards → union of their items.
+        XCTAssertEqual(
+            Set(try store.search("", pinboardIDs: [designID, remoteID]).map(\.hash)),
+            ["ps-design", "ps-remote"]
+        )
+        // Single id → just that board.
+        XCTAssertEqual(
+            try store.search("", pinboardIDs: [designID]).map(\.hash),
+            ["ps-design"]
+        )
+        // Empty set → no board filter, so every row (including unboarded).
+        XCTAssertEqual(
+            Set(try store.search("", pinboardIDs: []).map(\.hash)),
+            ["ps-design", "ps-remote", "ps-loose"]
+        )
+    }
+
+    func testSearchCombinesPinboardSetWithKindFTSAndDate() throws {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let cutoff = now.addingTimeInterval(-7 * 86_400)
+
+        let boardA = try store.createPinboard(name: "A", colorHex: "#FF0000")
+        let boardB = try store.createPinboard(name: "B", colorHex: "#00FF00")
+        let boardAID = try XCTUnwrap(boardA.id)
+        let boardBID = try XCTUnwrap(boardB.id)
+
+        let match = try store.insert(
+            kind: .url,
+            text: "https://example.com/hello",
+            hash: "pb-match",
+            now: now.addingTimeInterval(-3600)
+        ).item
+        let otherBoard = try store.insert(
+            kind: .url,
+            text: "https://example.com/hello-other",
+            hash: "pb-other-board",
+            now: now.addingTimeInterval(-3600)
+        ).item
+        let wrongKind = try store.insert(
+            kind: .text,
+            text: "hello text",
+            hash: "pb-wrong-kind",
+            now: now.addingTimeInterval(-3600)
+        ).item
+        let wrongDate = try store.insert(
+            kind: .url,
+            text: "https://example.com/hello-old",
+            hash: "pb-wrong-date",
+            now: now.addingTimeInterval(-10 * 86_400)
+        ).item
+        try store.addItem(try XCTUnwrap(match.id), toPinboard: boardAID)
+        try store.addItem(try XCTUnwrap(otherBoard.id), toPinboard: boardBID)
+        try store.addItem(try XCTUnwrap(wrongKind.id), toPinboard: boardAID)
+        try store.addItem(try XCTUnwrap(wrongDate.id), toPinboard: boardAID)
+
+        // No FTS query (non-FTS branch): board set + kind + date.
+        XCTAssertEqual(
+            try store.search(
+                "",
+                kind: .url,
+                createdAtFrom: cutoff,
+                pinboardIDs: [boardAID]
+            ).map(\.hash),
+            ["pb-match"]
+        )
+
+        // FTS branch: board set + kind + date + text.
+        XCTAssertEqual(
+            Set(
+                try store.search(
+                    "hello",
+                    kind: .url,
+                    createdAtFrom: cutoff,
+                    pinboardIDs: [boardAID, boardBID]
+                ).map(\.hash)
+            ),
+            ["pb-match", "pb-other-board"]
+        )
+        // The text item has the right FTS/date but is excluded by kind.
+        XCTAssertEqual(
+            try store.search(
+                "hello",
+                kind: .text,
+                createdAtFrom: cutoff,
+                pinboardIDs: [boardAID, boardBID]
+            ).map(\.hash),
+            ["pb-wrong-kind"]
+        )
+        // ... and by board: board B only holds the URL item.
+        XCTAssertTrue(
+            try store.search(
+                "hello",
+                kind: .text,
+                createdAtFrom: cutoff,
+                pinboardIDs: [boardBID]
+            ).isEmpty
+        )
+    }
+
     // MARK: - Persistence / recovery
 
     private func makeTemporaryDatabase() throws -> (directory: URL, path: String) {
@@ -613,7 +726,7 @@ final class AppStatePinboardTests: XCTestCase {
         }
         XCTAssertEqual(appState.items.first { $0.id == inserted.id }?.pinboardId, board.id)
 
-        appState.filterPinboardID = board.id
+        appState.filterPinboardIDs = [try XCTUnwrap(board.id)]
         await waitUntil {
             appState.items.count == 1 && appState.items.first?.id == inserted.id
         }
@@ -645,7 +758,7 @@ final class AppStatePinboardTests: XCTestCase {
             appState.items.first { $0.id == inserted.id }?.pinboardId == board.id
         }
 
-        appState.filterPinboardID = board.id
+        appState.filterPinboardIDs = [try XCTUnwrap(board.id)]
         await waitUntil { appState.items.count == 1 }
         XCTAssertEqual(appState.items.first?.id, inserted.id)
 
@@ -671,13 +784,13 @@ final class AppStatePinboardTests: XCTestCase {
         appState.createPinboard(name: "Remote", colorHex: "#FF9F0A")
         await waitUntil { appState.pinboards.contains { $0.name == "Remote" } }
         let board = try XCTUnwrap(appState.pinboards.first { $0.name == "Remote" })
-        appState.filterPinboardID = board.id
+        appState.filterPinboardIDs = [try XCTUnwrap(board.id)]
 
         appState.renamePinboard(board, name: "  Remote Renamed  ")
 
         await waitUntil { appState.pinboards.contains { $0.name == "Remote Renamed" } }
         XCTAssertEqual(appState.pinboards.map(\.name), ["Remote Renamed"])
-        XCTAssertEqual(appState.filterPinboardID, board.id)
+        XCTAssertEqual(appState.filterPinboardIDs, [try XCTUnwrap(board.id)])
         XCTAssertNil(appState.pinboardRenameRequest)
         XCTAssertEqual(try store.pinboards().first?.name, "Remote Renamed")
     }
@@ -706,12 +819,132 @@ final class AppStatePinboardTests: XCTestCase {
             appState.items.first { $0.id == inserted.id }?.pinboardId == board.id
         }
 
-        appState.filterPinboardID = board.id
+        appState.filterPinboardIDs = [try XCTUnwrap(board.id)]
         appState.deletePinboard(board)
 
         await waitUntil { appState.pinboards.isEmpty }
-        XCTAssertNil(appState.filterPinboardID)
+        XCTAssertTrue(appState.filterPinboardIDs.isEmpty)
         XCTAssertNil(try store.item(id: inserted.id!)?.pinboardId)
+    }
+
+    func testTogglePinboardFilterAddsAndRemoves() throws {
+        let store = try HistoryStore.inMemory()
+        let appState = AppState(
+            store: store,
+            startMonitoring: false,
+            dataStore: ItemDataStore(directory: directory)
+        )
+
+        appState.togglePinboardFilter(1)
+        XCTAssertEqual(appState.filterPinboardIDs, [1])
+        appState.togglePinboardFilter(2)
+        XCTAssertEqual(appState.filterPinboardIDs, [1, 2])
+        XCTAssertTrue(appState.hasActiveFilter)
+
+        appState.togglePinboardFilter(1)
+        XCTAssertEqual(appState.filterPinboardIDs, [2])
+
+        appState.clearPinboardFilter()
+        XCTAssertTrue(appState.filterPinboardIDs.isEmpty)
+        XCTAssertFalse(appState.hasActiveFilter)
+    }
+
+    func testSelectingBoardChipClearsPinnedOnly() throws {
+        let store = try HistoryStore.inMemory()
+        let appState = AppState(
+            store: store,
+            startMonitoring: false,
+            dataStore: ItemDataStore(directory: directory)
+        )
+
+        appState.filterPinnedOnly = true
+        appState.togglePinboardFilter(7)
+
+        XCTAssertEqual(appState.filterPinboardIDs, [7])
+        XCTAssertFalse(appState.filterPinnedOnly)
+    }
+
+    func testMultipleSelectedBoardsShowUnionOfItems() async throws {
+        let store = try HistoryStore.inMemory()
+        let appState = AppState(
+            store: store,
+            startMonitoring: false,
+            dataStore: ItemDataStore(directory: directory)
+        )
+        let boardA = try store.createPinboard(name: "A", colorHex: "#FF0000")
+        let boardB = try store.createPinboard(name: "B", colorHex: "#00FF00")
+        let boardAID = try XCTUnwrap(boardA.id)
+        let boardBID = try XCTUnwrap(boardB.id)
+        let itemA = try store.insert(kind: .text, text: "in A", hash: "union-a").item
+        let itemB = try store.insert(kind: .text, text: "in B", hash: "union-b").item
+        _ = try store.insert(kind: .text, text: "loose", hash: "union-loose")
+        try store.addItem(try XCTUnwrap(itemA.id), toPinboard: boardAID)
+        try store.addItem(try XCTUnwrap(itemB.id), toPinboard: boardBID)
+
+        appState.reload()
+        await waitUntil { appState.items.count == 3 }
+
+        appState.filterPinboardIDs = [boardAID, boardBID]
+        await waitUntil { appState.items.count == 2 }
+        XCTAssertEqual(
+            Set(appState.items.compactMap(\.id)),
+            [try XCTUnwrap(itemA.id), try XCTUnwrap(itemB.id)]
+        )
+
+        // Removing one chip narrows the union to the remaining board.
+        appState.togglePinboardFilter(boardAID)
+        await waitUntil { appState.items.map(\.id) == [itemB.id] }
+        XCTAssertEqual(appState.items.map(\.id), [itemB.id])
+
+        // Empty set → all boards again, including the unboarded item.
+        appState.clearPinboardFilter()
+        await waitUntil { appState.items.count == 3 }
+        XCTAssertEqual(appState.items.count, 3)
+    }
+
+    func testDeleteSelectedPinboardShrinksSetToRemainingBoard() async throws {
+        let store = try HistoryStore.inMemory()
+        let appState = AppState(
+            store: store,
+            startMonitoring: false,
+            dataStore: ItemDataStore(directory: directory)
+        )
+        let boardA = try store.createPinboard(name: "A", colorHex: "#FF0000")
+        let boardB = try store.createPinboard(name: "B", colorHex: "#00FF00")
+        let boardAID = try XCTUnwrap(boardA.id)
+        let boardBID = try XCTUnwrap(boardB.id)
+        appState.reload()
+        await waitUntil { appState.pinboards.count == 2 }
+
+        appState.filterPinboardIDs = [boardAID, boardBID]
+        appState.deletePinboard(boardA)
+
+        await waitUntil { appState.pinboards.map(\.id) == [boardBID] }
+        XCTAssertEqual(appState.filterPinboardIDs, [boardBID])
+    }
+
+    func testShouldPublishCapturedItemImmediatelyRespectsBoardSet() throws {
+        let store = try HistoryStore.inMemory()
+        let appState = AppState(
+            store: store,
+            startMonitoring: false,
+            dataStore: ItemDataStore(directory: directory)
+        )
+        let inA = ClipboardItem(kind: .text, text: "a", hash: "capture-a", pinboardId: 1)
+        let inB = ClipboardItem(kind: .text, text: "b", hash: "capture-b", pinboardId: 2)
+        let loose = ClipboardItem(kind: .text, text: "loose", hash: "capture-loose")
+
+        // Empty set means all boards, so every capture is publishable.
+        XCTAssertTrue(appState.shouldPublishCapturedItemImmediately(inA))
+        XCTAssertTrue(appState.shouldPublishCapturedItemImmediately(loose))
+
+        appState.filterPinboardIDs = [1]
+        XCTAssertTrue(appState.shouldPublishCapturedItemImmediately(inA))
+        XCTAssertFalse(appState.shouldPublishCapturedItemImmediately(inB))
+        XCTAssertFalse(appState.shouldPublishCapturedItemImmediately(loose))
+
+        appState.filterPinboardIDs = [1, 2]
+        XCTAssertTrue(appState.shouldPublishCapturedItemImmediately(inB))
     }
 
     func testRenamedTextItemExposesTitleForRendering() {
@@ -851,5 +1084,48 @@ final class AppStatePowerSearchTests: XCTestCase {
         appState.searchText = "pinboard:archive"
         await waitUntil { appState.items.map(\.id) == [archiveItem.id] }
         XCTAssertEqual(appState.items.map(\.id), [archiveItem.id])
+    }
+
+    func testChipBoardSetIntersectsTypedPinboard() async throws {
+        let store = try HistoryStore.inMemory()
+        let appState = makeAppState(store: store)
+        let alphaItem = try store.insert(
+            kind: .text,
+            text: "alpha note",
+            hash: "ps-alpha"
+        ).item
+        let betaItem = try store.insert(
+            kind: .text,
+            text: "beta note",
+            hash: "ps-beta"
+        ).item
+
+        appState.createPinboard(name: "Alpha", colorHex: "#FF0000")
+        appState.createPinboard(name: "Beta", colorHex: "#00FF00")
+        await waitUntil { appState.pinboards.count == 2 }
+        let alpha = try XCTUnwrap(appState.pinboards.first { $0.name == "Alpha" })
+        let beta = try XCTUnwrap(appState.pinboards.first { $0.name == "Beta" })
+        appState.addToPinboard(alphaItem, pinboard: alpha)
+        appState.addToPinboard(betaItem, pinboard: beta)
+        await waitUntil {
+            appState.items.first { $0.id == alphaItem.id }?.pinboardId == alpha.id
+                && appState.items.first { $0.id == betaItem.id }?.pinboardId == beta.id
+        }
+
+        // Parsed board ∈ chip set → that board applies.
+        appState.filterPinboardIDs = [try XCTUnwrap(alpha.id)]
+        appState.searchText = "pinboard:Alpha"
+        await waitUntil { appState.items.map(\.id) == [alphaItem.id] }
+        XCTAssertEqual(appState.items.map(\.id), [alphaItem.id])
+
+        // Parsed board ∉ chip set → contradiction, never "chips OR syntax".
+        appState.searchText = "pinboard:Beta"
+        await waitUntil { appState.items.isEmpty }
+        XCTAssertTrue(appState.items.isEmpty)
+
+        // Empty chip set → the typed clause is free to apply on its own.
+        appState.clearPinboardFilter()
+        await waitUntil { appState.items.map(\.id) == [betaItem.id] }
+        XCTAssertEqual(appState.items.map(\.id), [betaItem.id])
     }
 }

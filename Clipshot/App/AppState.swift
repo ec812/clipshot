@@ -51,7 +51,9 @@ final class AppState: ObservableObject {
     @Published var filterPinnedOnly = false {
         didSet { reload() }
     }
-    @Published var filterPinboardID: Int64? {
+    /// Selected pinboard chips. Empty means "all boards" (no board filter).
+    /// Non-empty shows the union of items in those boards.
+    @Published var filterPinboardIDs: Set<Int64> = [] {
         didSet { reload() }
     }
     @Published var pinboards: [Pinboard] = []
@@ -306,6 +308,14 @@ final class AppState: ObservableObject {
     /// narrow the chip selection instead of replacing it, so a contradiction such
     /// as chip = Link plus `kind:text` intentionally yields no results.
     ///
+    /// Pinboard composition: the chip set is a union (`IN (...)` over many
+    /// boards), while `pinboard:Name` resolves to exactly one board. They are
+    /// intersected, never OR-ed:
+    /// - parsed id ∈ chip set (or the chip set is empty) → that single board
+    ///   applies; the union-of-set semantics reduce to it.
+    /// - parsed id ∉ chip set → intentional conflict → zero results, matching
+    ///   the `kind` conflict behavior above.
+    ///
     /// Both states stay in effect; whichever one wrote last (through the `didSet`
     /// handlers above) drives this reload.
     func reload() {
@@ -315,7 +325,7 @@ final class AppState: ObservableObject {
         let kind = filterKind
         let bundleId = filterBundleId
         let pinnedOnly = filterPinnedOnly
-        let pinboardID = filterPinboardID
+        let pinboardIDs = filterPinboardIDs
         let parsed = SearchQueryParser.parse(query)
         let now = Date()
 
@@ -337,11 +347,16 @@ final class AppState: ObservableObject {
 
         let dateInterval = parsed.dateFilter?.interval(now: now)
         let kindConflict = kind != nil && parsed.kind != nil && kind != parsed.kind
-        let pinboardConflict = pinboardID != nil
-            && parsedPinboardID != nil
-            && pinboardID != parsedPinboardID
+        let pinboardConflict = parsedPinboardID.map {
+            !pinboardIDs.isEmpty && !pinboardIDs.contains($0)
+        } ?? false
         let effectiveKind = kind ?? parsed.kind
-        let effectivePinboardID = pinboardID ?? parsedPinboardID
+        let effectivePinboardIDs: Set<Int64>
+        if let parsedPinboardID {
+            effectivePinboardIDs = [parsedPinboardID]
+        } else {
+            effectivePinboardIDs = pinboardIDs
+        }
         let store = self.store
 
         Task.detached(priority: .userInitiated) {
@@ -357,15 +372,12 @@ final class AppState: ObservableObject {
                         sourceAppOrBundleId: parsed.fromApp,
                         createdAtFrom: dateInterval?.start,
                         createdAtTo: dateInterval?.end,
-                        phrase: parsed.phrase
+                        phrase: parsed.phrase,
+                        pinboardIDs: effectivePinboardIDs
                     )
                 }
                 let loaded = results.filter { item in
-                    if pinnedOnly && !item.isPinned { return false }
-                    if let effectivePinboardID, item.pinboardId != effectivePinboardID {
-                        return false
-                    }
-                    return true
+                    !pinnedOnly || item.isPinned
                 }
                 let sources = try store.distinctSources()
                 let boards = try store.pinboards()
@@ -441,7 +453,7 @@ final class AppState: ObservableObject {
             || filterKind != nil
             || filterBundleId != nil
             || filterPinnedOnly
-            || filterPinboardID != nil
+            || !filterPinboardIDs.isEmpty
     }
 
     func moveSelection(by delta: Int) {
@@ -462,8 +474,10 @@ final class AppState: ObservableObject {
     /// Reveal semantics:
     /// 1. Clear `searchText`.
     /// 2. Clear `filterKind`, `filterBundleId`, `filterPinnedOnly`.
-    /// 3. Keep `filterPinboardID` when it already shows the item; otherwise
-    ///    point it at the item's own board (or clear it when the item has none).
+    /// 3. Keep the board chip set when it already shows the item (it is empty,
+    ///    or it contains the item's board); otherwise replace it with just the
+    ///    item's board so the jump lands in that board's context (or clear it
+    ///    when the item has no board).
     /// 4. Select the item last. Clearing a filter reloads asynchronously, so the
     ///    selection is set before that reload publishes; `reload()` keeps it
     ///    because the reloaded (unfiltered) set contains the item.
@@ -486,8 +500,9 @@ final class AppState: ObservableObject {
             filterPinnedOnly = false
             reloadStarted = true
         }
-        if let board = filterPinboardID, board != item.pinboardId {
-            filterPinboardID = item.pinboardId
+        let showsItem = item.pinboardId.map { filterPinboardIDs.contains($0) } ?? false
+        if !filterPinboardIDs.isEmpty, !showsItem {
+            filterPinboardIDs = item.pinboardId.map { [$0] } ?? []
             reloadStarted = true
         }
 
@@ -505,16 +520,24 @@ final class AppState: ObservableObject {
         revealTargetID = nil
     }
 
+    /// True when a newly captured item would pass the current filters, so it can
+    /// be published immediately instead of waiting for a DB re-query. The board
+    /// set shows the item when it is empty (all boards) or contains its board.
+    func shouldPublishCapturedItemImmediately(_ item: ClipboardItem) -> Bool {
+        searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && (filterKind == nil || filterKind == item.kind)
+            && (filterBundleId == nil || filterBundleId == item.bundleId)
+            && (!filterPinnedOnly || item.isPinned)
+            && (filterPinboardIDs.isEmpty
+                || (item.pinboardId.map { filterPinboardIDs.contains($0) } ?? false))
+    }
+
     private func handleCaptured(_ item: ClipboardItem) {
         guard overlayController.isVisible else { return }
 
         // The monitor has already committed the item. For the common unfiltered
         // view, publish it immediately instead of waiting for a DB re-query.
-        if searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-           filterKind == nil || filterKind == item.kind,
-           filterBundleId == nil || filterBundleId == item.bundleId,
-           !filterPinnedOnly || item.isPinned,
-           filterPinboardID == nil || filterPinboardID == item.pinboardId {
+        if shouldPublishCapturedItemImmediately(item) {
             // Discard any reload that started before this insert; otherwise its
             // pre-insert snapshot can overwrite the item we are publishing now.
             reloadGeneration &+= 1
@@ -674,15 +697,31 @@ final class AppState: ObservableObject {
         })
     }
 
+    /// Toggles one board chip. A selected board is removed; an unselected board
+    /// is added. Selecting a board drops the "Pinned" chip, matching the
+    /// previous mutually-exclusive behavior.
+    func togglePinboardFilter(_ pinboardID: Int64) {
+        if filterPinboardIDs.contains(pinboardID) {
+            filterPinboardIDs.remove(pinboardID)
+        } else {
+            filterPinboardIDs.insert(pinboardID)
+            filterPinnedOnly = false
+        }
+    }
+
+    /// "All boards": an empty set means no board filter.
+    func clearPinboardFilter() {
+        filterPinboardIDs = []
+    }
+
     func deletePinboard(_ pinboard: Pinboard) {
         guard let id = pinboard.id else { return }
-        let shouldClearFilter = filterPinboardID == id
         performStoreWrite({ store in
             try store.deletePinboard(id: id)
         }, completion: { [weak self] in
-            if shouldClearFilter {
-                self?.filterPinboardID = nil
-            }
+            // Shrink the selection; if it becomes empty that naturally means
+            // "all boards".
+            self?.filterPinboardIDs.remove(id)
         })
     }
 

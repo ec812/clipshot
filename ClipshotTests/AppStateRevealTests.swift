@@ -80,7 +80,7 @@ final class AppStateRevealTests: XCTestCase {
         XCTAssertNil(appState.filterKind)
         XCTAssertNil(appState.filterBundleId)
         XCTAssertFalse(appState.filterPinnedOnly)
-        XCTAssertNil(appState.filterPinboardID)
+        XCTAssertTrue(appState.filterPinboardIDs.isEmpty)
         XCTAssertFalse(appState.hasActiveFilter)
         XCTAssertEqual(appState.selectedItemID, targetID)
         XCTAssertEqual(appState.revealTargetID, targetID)
@@ -108,19 +108,19 @@ final class AppStateRevealTests: XCTestCase {
         appState.reload()
         await waitUntil { appState.items.count == 2 }
 
-        appState.filterPinboardID = emptyBoard.id
+        appState.filterPinboardIDs = [try XCTUnwrap(emptyBoard.id)]
         await waitUntil { appState.items.isEmpty }
         XCTAssertTrue(appState.items.isEmpty)
 
         let visibleItem = try XCTUnwrap(try store.item(id: targetID))
         appState.reveal(visibleItem)
 
-        XCTAssertEqual(appState.filterPinboardID, itemBoard.id)
+        XCTAssertEqual(appState.filterPinboardIDs, [try XCTUnwrap(itemBoard.id)])
         await waitUntil {
             appState.items.map(\.id) == [targetID]
                 && appState.selectedItemID == targetID
         }
-        XCTAssertEqual(appState.filterPinboardID, itemBoard.id)
+        XCTAssertEqual(appState.filterPinboardIDs, [try XCTUnwrap(itemBoard.id)])
         XCTAssertEqual(appState.items.map(\.id), [targetID])
         XCTAssertEqual(appState.selectedItemID, targetID)
     }
@@ -136,19 +136,49 @@ final class AppStateRevealTests: XCTestCase {
         appState.reload()
         await waitUntil { appState.items.map(\.id) == [targetID] }
 
-        appState.filterPinboardID = board.id
+        appState.filterPinboardIDs = [try XCTUnwrap(board.id)]
         await waitUntil { appState.items.isEmpty }
 
         let visibleItem = try XCTUnwrap(try store.item(id: targetID))
         appState.reveal(visibleItem)
 
-        XCTAssertNil(appState.filterPinboardID)
+        XCTAssertTrue(appState.filterPinboardIDs.isEmpty)
         await waitUntil {
             appState.items.map(\.id) == [targetID]
                 && appState.selectedItemID == targetID
         }
-        XCTAssertNil(appState.filterPinboardID)
+        XCTAssertTrue(appState.filterPinboardIDs.isEmpty)
         XCTAssertEqual(appState.selectedItemID, targetID)
+    }
+
+    func testRevealKeepsMultiBoardSelectionThatShowsItem() async throws {
+        let store = try HistoryStore.inMemory()
+        let appState = makeAppState(store: store)
+
+        let boardA = try store.createPinboard(name: "A", colorHex: "#FF0000")
+        let boardB = try store.createPinboard(name: "B", colorHex: "#00FF00")
+        let itemA = try store.insert(kind: .text, text: "in A", hash: "reveal-a").item
+        let itemB = try store.insert(kind: .text, text: "in B", hash: "reveal-b").item
+        try store.addItem(try XCTUnwrap(itemA.id), toPinboard: try XCTUnwrap(boardA.id))
+        try store.addItem(try XCTUnwrap(itemB.id), toPinboard: try XCTUnwrap(boardB.id))
+
+        appState.filterPinboardIDs = [
+            try XCTUnwrap(boardA.id),
+            try XCTUnwrap(boardB.id)
+        ]
+        await waitUntil { appState.items.count == 2 }
+        XCTAssertEqual(appState.items.count, 2)
+
+        // The item's board is already in the set, so the union keeps showing it
+        // and the multi-board context is preserved.
+        let visibleItem = try XCTUnwrap(try store.item(id: try XCTUnwrap(itemB.id)))
+        appState.reveal(visibleItem)
+
+        XCTAssertEqual(
+            appState.filterPinboardIDs,
+            [try XCTUnwrap(boardA.id), try XCTUnwrap(boardB.id)]
+        )
+        XCTAssertEqual(appState.selectedItemID, itemB.id)
     }
 
     func testSelectionSurvivesDebouncedSearchReload() async throws {
@@ -203,9 +233,9 @@ final class AppStateRevealTests: XCTestCase {
         XCTAssertTrue(appState.hasActiveFilter)
         appState.filterPinnedOnly = false
 
-        appState.filterPinboardID = 1
+        appState.filterPinboardIDs = [1]
         XCTAssertTrue(appState.hasActiveFilter)
-        appState.filterPinboardID = nil
+        appState.filterPinboardIDs = []
 
         XCTAssertFalse(appState.hasActiveFilter)
     }
