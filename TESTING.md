@@ -14,7 +14,7 @@ xcodebuild -scheme Clipshot test
 Latest verified result on this machine (Xcode 27.1, macOS 27.0.1):
 
 - `xcodebuild -scheme Clipshot build` → **BUILD SUCCEEDED**
-- `xcodebuild -scheme Clipshot test` → **TEST SUCCEEDED** — 197 tests, 0 failures
+- `xcodebuild -scheme Clipshot test` → **TEST SUCCEEDED** — 234 tests, 0 failures
   - `HistoryStoreTests` — 19
   - `PrivacyFilterTests` — 10
   - `BitlyBackendTests` — 17
@@ -46,6 +46,7 @@ Note: Xcode prints unrelated `CoreDevice` / `CoreSimulator` warnings on this mac
 | `HistoryStore` | insert, hash dedupe + timestamp bump, FTS5 prefix search, punctuation-safe queries, kind/bundle filters, retention (pinned kept), pinboards, short-link cache, rule ordering, edit/delete, WAL journal mode + 5 s busy timeout, file reopen persistence, migration idempotency, WAL-present reopen without recreation, I/O-error recovery on the same file, corrupt-WAL leaves the database file intact |
 | `PrivacyFilter` | ignore list, transient/auto-generated markers, concealment markers, pause expiry, resume, live ignore-list updates |
 | `ClipboardPayloadReader` | text/color/URL/file classification, Finder image copies keep File kind, image pathname strings (existing image, missing file, non-image, directory, prose) classify correctly, URL capture path is synchronous and does not fetch previews, image payload persistence from a background-safe pasteboard snapshot |
+| `OCREngine` / OCR search | Vision extracts drawn text from a PNG fixture, unreadable images throw, `ocrText` is searchable and re-indexed when updated, pre-`v3` rows are repopulated during the FTS rebuild, and the capture path never invokes OCR |
 | `PasteEngine` | File items write `public.file-url`, image items write `public.png`, and the short-link text override applies only to URL short links |
 | `SingleInstanceGuard` | second lock acquisition fails, pid is written, lock can be reacquired after release |
 | `BitlyBackend` | POST `/shorten` (Bearer header, `long_url`, `domain`, `group_guid`, cache), POST `/bitlinks` custom-slug path, 401 `INVALID_ARG_ACCESS_TOKEN`, 404, `BRANDED_LINK_MONTHLY_LIMIT_EXCEEDED`, `DNS_CONFIGURATION_ERROR`, validation, 503, missing token, PATCH update, DELETE, GET `/user` verify, clicks parsing + cache update, capabilities |
@@ -169,6 +170,12 @@ Copy each value below, then open the timeline. Each color item's entire content 
 - [ ] Reconnect and copy that same URL within 24 hours → negative cache still shows the fallback (by design). Press **Clear preview cache**, then copy again → it loads.
 - [ ] Settings → General → **Clear preview cache** → cached previews disappear and refetch when cards next appear.
 - [ ] Pause capture (menu bar), copy a new URL, open the timeline → no OG fetch occurs while paused; resume and reopen → the fetch starts.
+
+### OCR (on demand)
+- [ ] Capture a screenshot containing visible text (⇧⌘4), right-click its image card → **Extract Text** → the toast says "Text extracted" and the recognized text is on the clipboard.
+- [ ] Paste the extracted text into the search bar → the image card is found; search for a different word visible in the screenshot → the same card is found.
+- [ ] Right-click a text, link or color card → no **Extract Text** entry.
+- [ ] Copying a new image still appears immediately; OCR never runs unless the menu item is chosen.
 
 ### Capture latency
 - [ ] With the timeline open, copy a short unique string → the new card appears immediately and is selected/scrolled into view (no manual refresh).
