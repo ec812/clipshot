@@ -25,6 +25,7 @@ A native macOS menu-bar clipboard manager with link shortening built in — a Cl
 - Rich previews: full-content color fills with readable value overlays (hex with or without `#`, rgb/rgba, hsl/hsla, cmyk/cmyka, oklch/oklab, named), Open Graph images with title and description for links (the raw URL paints immediately; previews enrich asynchronously), source-app icons and per-app accent-tinted cards
 - Code-aware previews: code-like text is detected lazily and syntax-highlighted in the card (Swift, JS/TS, Python, JSON, shell, SQL, HTML, CSS, C-family); prose stays plain, with a per-item **Highlight as Code** / **Show as Plain Text** override
 - New captures are selected and scrolled into view immediately when the timeline is open
+- On-demand OCR: right-click an image card → **Extract Text**; the recognized text is copied and indexed for search (never runs on the capture path)
 - Plain-text paste, paste stack, Quick Look, pinboards, snippets, edit/rename, retention
 - Privacy: bundle-id ignore list (password managers by default), transient/concealed pasteboard markers, timed pause (also suspends OG fetches)
 
@@ -83,6 +84,7 @@ Clipshot/
 │   ├── PrivacyFilter.swift      ignore list, markers, pause window
 │   ├── PasteEngine.swift        pasteboard writes, CGEvent ⌘V, paste stack
 │   ├── ItemDataStore.swift      image/RTF payload files
+│   ├── OCREngine.swift          on-demand Vision text recognition
 │   ├── AppIconProvider.swift    source-app icons + accent extraction
 │   ├── OGImageParser.swift      og/twitter/head image, title, description extraction
 │   ├── OGImageCache.swift       disk TTL, metadata + image records, negative cache, LRU cap

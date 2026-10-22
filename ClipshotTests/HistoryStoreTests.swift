@@ -208,6 +208,71 @@ final class HistoryStoreTests: XCTestCase {
         XCTAssertEqual(FTSQuery.make(from: "\"quoted\""), "\"quoted\"*")
     }
 
+    func testOcrTextIsSearchableAfterUpdate() throws {
+        let inserted = try store.insert(
+            kind: .image,
+            text: nil,
+            title: "Image 10×10",
+            dataPath: "/tmp/screenshot.png",
+            hash: "ocr-image"
+        )
+        XCTAssertNil(inserted.item.ocrText)
+
+        try store.updateOcrText("hello world zebra", for: inserted.item.id!)
+
+        let results = try store.search("zebra")
+        XCTAssertEqual(results.map(\.id), [inserted.item.id])
+        XCTAssertEqual(results.first?.ocrText, "hello world zebra")
+    }
+
+    func testOcrTextUpdateReindexesOldTerm() throws {
+        let inserted = try store.insert(
+            kind: .image,
+            text: nil,
+            dataPath: "/tmp/screenshot.png",
+            hash: "ocr-reindex"
+        )
+        let id = try XCTUnwrap(inserted.item.id)
+
+        try store.updateOcrText("alpha beta", for: id)
+        XCTAssertEqual(try store.search("alpha").first?.id, id)
+
+        try store.updateOcrText("gamma delta", for: id)
+        XCTAssertTrue(try store.search("alpha").isEmpty)
+        XCTAssertEqual(try store.search("gamma").first?.id, id)
+        XCTAssertEqual(try store.item(id: id)?.ocrText, "gamma delta")
+    }
+
+    func testFreshDatabaseExposesOcrTextColumn() throws {
+        let columns = try store.dbQueue.read { db in
+            try Row.fetchAll(db, sql: "PRAGMA table_info(items)")
+        }
+        XCTAssertTrue(columns.contains { ($0["name"] as String?) == "ocrText" })
+    }
+
+    func testMigrationRebuildsIndexForExistingRows() throws {
+        let (directory, path) = try makeTemporaryDatabase()
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let queue = try DatabaseQueue(path: path)
+        try HistoryStore.migrator.migrate(queue, upTo: "v2-bitly-backend")
+        try queue.write { db in
+            try db.execute(
+                sql: """
+                    INSERT INTO items
+                        (kind, text, title, createdAt, isPinned, hash, isSnippet)
+                    VALUES ('text', 'legacy searchable row', NULL, ?, 0, 'legacy', 0)
+                    """,
+                arguments: [Date()]
+            )
+        }
+
+        let migrated = try HistoryStore(dbQueue: queue)
+        XCTAssertEqual(try migrated.search("legacy").count, 1)
+        XCTAssertEqual(try migrated.search("searchable").count, 1)
+        try migrated.dbQueue.close()
+    }
+
     func testColorItemTextRemainsSearchable() throws {
         _ = try store.insert(kind: .color, text: "#a51a15", hash: "color-search")
 
@@ -267,7 +332,7 @@ final class HistoryStoreTests: XCTestCase {
         let applied = try first.dbQueue.read { db in
             try HistoryStore.migrator.appliedIdentifiers(db)
         }
-        XCTAssertEqual(applied, ["v1", "v2-bitly-backend"])
+        XCTAssertEqual(applied, ["v1", "v2-bitly-backend", "v3-ocr"])
         try first.dbQueue.close()
 
         let second = try HistoryStore(path: path)

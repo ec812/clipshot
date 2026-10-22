@@ -225,6 +225,56 @@ final class HistoryStore: ShortLinkCaching, @unchecked Sendable {
             try db.execute(sql: "DELETE FROM short_links WHERE backendId <> 'bitly'")
         }
 
+        migrator.registerMigration("v3-ocr") { db in
+            try db.execute(sql: "ALTER TABLE items ADD COLUMN ocrText TEXT")
+
+            // FTS5 virtual tables cannot be altered, so rebuild the index with
+            // the new column and repopulate it from the source table.
+            try db.execute(sql: "DROP TRIGGER items_ai")
+            try db.execute(sql: "DROP TRIGGER items_ad")
+            try db.execute(sql: "DROP TRIGGER items_au")
+            try db.execute(sql: "DROP TABLE items_fts")
+
+            try db.execute(sql: """
+                CREATE VIRTUAL TABLE items_fts USING fts5(
+                    text,
+                    title,
+                    ocrText,
+                    content='items',
+                    content_rowid='id',
+                    tokenize='unicode61'
+                )
+                """)
+
+            try db.execute(sql: """
+                CREATE TRIGGER items_ai AFTER INSERT ON items BEGIN
+                    INSERT INTO items_fts(rowid, text, title, ocrText)
+                    VALUES (new.id, new.text, new.title, new.ocrText);
+                END
+                """)
+
+            try db.execute(sql: """
+                CREATE TRIGGER items_ad AFTER DELETE ON items BEGIN
+                    INSERT INTO items_fts(items_fts, rowid, text, title, ocrText)
+                    VALUES ('delete', old.id, old.text, old.title, old.ocrText);
+                END
+                """)
+
+            try db.execute(sql: """
+                CREATE TRIGGER items_au AFTER UPDATE ON items BEGIN
+                    INSERT INTO items_fts(items_fts, rowid, text, title, ocrText)
+                    VALUES ('delete', old.id, old.text, old.title, old.ocrText);
+                    INSERT INTO items_fts(rowid, text, title, ocrText)
+                    VALUES (new.id, new.text, new.title, new.ocrText);
+                END
+                """)
+
+            try db.execute(sql: """
+                INSERT INTO items_fts(rowid, text, title, ocrText)
+                SELECT id, text, title, ocrText FROM items
+                """)
+        }
+
         return migrator
     }()
 
@@ -344,6 +394,15 @@ final class HistoryStore: ShortLinkCaching, @unchecked Sendable {
             try db.execute(
                 sql: "UPDATE items SET text = ?, title = ?, kind = ? WHERE id = ?",
                 arguments: [text, title, ClipboardItemKind.text.rawValue, itemID]
+            )
+        }
+    }
+
+    func updateOcrText(_ text: String?, for itemID: Int64) throws {
+        try dbQueue.write { db in
+            try db.execute(
+                sql: "UPDATE items SET ocrText = ? WHERE id = ?",
+                arguments: [text, itemID]
             )
         }
     }
