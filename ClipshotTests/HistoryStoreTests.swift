@@ -300,6 +300,139 @@ final class HistoryStoreTests: XCTestCase {
         XCTAssertEqual(busyTimeout, 5000)
     }
 
+    // MARK: - Power search filters
+
+    func testSearchFiltersBySourceAppOrBundleIdCaseInsensitively() throws {
+        _ = try store.insert(
+            kind: .text,
+            text: "from safari",
+            sourceApp: "Safari",
+            bundleId: "com.apple.Safari",
+            hash: "ps-safari"
+        )
+        _ = try store.insert(
+            kind: .text,
+            text: "from notes",
+            sourceApp: "Notes",
+            bundleId: "com.apple.Notes",
+            hash: "ps-notes"
+        )
+
+        XCTAssertEqual(
+            try store.search("", sourceAppOrBundleId: "safari").map(\.hash),
+            ["ps-safari"]
+        )
+        XCTAssertEqual(
+            try store.search("", sourceAppOrBundleId: "COM.APPLE.SAFARI").map(\.hash),
+            ["ps-safari"]
+        )
+        XCTAssertEqual(
+            try store.search("", sourceAppOrBundleId: "com.apple.notes").map(\.hash),
+            ["ps-notes"]
+        )
+        XCTAssertEqual(
+            try store.search("safari", sourceAppOrBundleId: "Safari").map(\.hash),
+            ["ps-safari"]
+        )
+        XCTAssertTrue(try store.search("", sourceAppOrBundleId: "Chrome").isEmpty)
+    }
+
+    func testSearchFiltersByCreatedAtWindow() throws {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        _ = try store.insert(
+            kind: .text,
+            text: "old",
+            hash: "ps-old",
+            now: now.addingTimeInterval(-10 * 86_400)
+        )
+        _ = try store.insert(
+            kind: .text,
+            text: "recent",
+            hash: "ps-recent",
+            now: now.addingTimeInterval(-2 * 86_400)
+        )
+
+        let cutoff = now.addingTimeInterval(-7 * 86_400)
+        XCTAssertEqual(try store.search("", createdAtFrom: cutoff).map(\.hash), ["ps-recent"])
+        XCTAssertTrue(try store.search("old", createdAtFrom: cutoff).isEmpty)
+        XCTAssertEqual(
+            try store.search("old", createdAtFrom: now.addingTimeInterval(-11 * 86_400))
+                .map(\.hash),
+            ["ps-old"]
+        )
+
+        let windowStart = now.addingTimeInterval(-3 * 86_400)
+        let windowEnd = now.addingTimeInterval(-1 * 86_400)
+        XCTAssertEqual(
+            try store.search("", createdAtFrom: windowStart, createdAtTo: windowEnd)
+                .map(\.hash),
+            ["ps-recent"]
+        )
+    }
+
+    func testSearchCombinesKindAppDateAndFTS() throws {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        _ = try store.insert(
+            kind: .url,
+            text: "https://example.com/hello",
+            sourceApp: "Safari",
+            bundleId: "com.apple.Safari",
+            hash: "ps-recent-url",
+            now: now.addingTimeInterval(-3600)
+        )
+        _ = try store.insert(
+            kind: .text,
+            text: "hello notes",
+            sourceApp: "Notes",
+            bundleId: "com.apple.Notes",
+            hash: "ps-recent-text",
+            now: now.addingTimeInterval(-3600)
+        )
+        _ = try store.insert(
+            kind: .url,
+            text: "https://example.com/hello-old",
+            sourceApp: "Safari",
+            bundleId: "com.apple.Safari",
+            hash: "ps-old-url",
+            now: now.addingTimeInterval(-10 * 86_400)
+        )
+
+        let cutoff = now.addingTimeInterval(-7 * 86_400)
+        XCTAssertEqual(
+            try store.search(
+                "hello",
+                kind: .url,
+                sourceAppOrBundleId: "Safari",
+                createdAtFrom: cutoff
+            ).map(\.hash),
+            ["ps-recent-url"]
+        )
+        XCTAssertTrue(
+            try store.search(
+                "hello",
+                kind: .text,
+                sourceAppOrBundleId: "Safari",
+                createdAtFrom: cutoff
+            ).isEmpty
+        )
+    }
+
+    func testSearchForcesExactPhrase() throws {
+        _ = try store.insert(kind: .text, text: "quick brown fox", hash: "ps-adjacent")
+        _ = try store.insert(kind: .text, text: "quick swift brown", hash: "ps-apart")
+
+        XCTAssertEqual(try store.search("quick brown").count, 2)
+        XCTAssertEqual(try store.search("", phrase: "quick brown").map(\.hash), ["ps-adjacent"])
+        XCTAssertEqual(
+            try store.search("fox", phrase: "quick brown").map(\.hash),
+            ["ps-adjacent"]
+        )
+        XCTAssertEqual(
+            FTSQuery.make(from: "fox", phrase: "quick brown"),
+            "\"fox\"* AND \"quick brown\""
+        )
+    }
+
     // MARK: - Persistence / recovery
 
     private func makeTemporaryDatabase() throws -> (directory: URL, path: String) {
@@ -601,5 +734,122 @@ final class AppStatePinboardTests: XCTestCase {
                 hash: "same-title"
             ).previewTitle
         )
+    }
+}
+
+@MainActor
+final class AppStatePowerSearchTests: XCTestCase {
+    private var directory: URL!
+
+    override func setUpWithError() throws {
+        try super.setUpWithError()
+        directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ClipshotPowerSearchTests-\(UUID().uuidString)", isDirectory: true)
+    }
+
+    override func tearDownWithError() throws {
+        try? FileManager.default.removeItem(at: directory)
+        try super.tearDownWithError()
+    }
+
+    private func waitUntil(
+        timeout: TimeInterval = 2,
+        _ condition: @escaping @MainActor () -> Bool
+    ) async {
+        let deadline = Date().addingTimeInterval(timeout)
+        while !condition() && Date() < deadline {
+            try? await Task.sleep(nanoseconds: 20_000_000)
+        }
+    }
+
+    private func makeAppState(store: HistoryStore) -> AppState {
+        AppState(
+            store: store,
+            startMonitoring: false,
+            dataStore: ItemDataStore(directory: directory)
+        )
+    }
+
+    func testTypedFromFilterMatchesSourceApp() async throws {
+        let store = try HistoryStore.inMemory()
+        let appState = makeAppState(store: store)
+        let safari = try store.insert(
+            kind: .text,
+            text: "safari note",
+            sourceApp: "Safari",
+            bundleId: "com.apple.Safari",
+            hash: "ps-safari"
+        ).item
+        let notes = try store.insert(
+            kind: .text,
+            text: "notes note",
+            sourceApp: "Notes",
+            bundleId: "com.apple.Notes",
+            hash: "ps-notes"
+        ).item
+
+        appState.reload()
+        await waitUntil { appState.items.count == 2 }
+
+        appState.searchText = "from:\"Safari\""
+        await waitUntil { appState.items.map(\.id) == [safari.id] }
+        XCTAssertEqual(appState.items.map(\.id), [safari.id])
+        XCTAssertNotEqual(appState.items.first?.id, notes.id)
+    }
+
+    func testChipAndTypedKindIntersect() async throws {
+        let store = try HistoryStore.inMemory()
+        let appState = makeAppState(store: store)
+        let url = try store.insert(
+            kind: .url,
+            text: "https://example.com",
+            hash: "ps-url"
+        ).item
+        _ = try store.insert(kind: .text, text: "plain text", hash: "ps-text")
+
+        appState.filterKind = .url
+        await waitUntil { appState.items.map(\.id) == [url.id] }
+        XCTAssertEqual(appState.items.map(\.id), [url.id])
+
+        appState.searchText = "kind:text"
+        await waitUntil { appState.items.isEmpty }
+        XCTAssertTrue(appState.items.isEmpty)
+
+        appState.searchText = "kind:url"
+        await waitUntil { appState.items.map(\.id) == [url.id] }
+        XCTAssertEqual(appState.items.map(\.id), [url.id])
+    }
+
+    func testTypedPinboardFiltersAndUnknownNameFallsBackToFreeText() async throws {
+        let store = try HistoryStore.inMemory()
+        let appState = makeAppState(store: store)
+        let boardItem = try store.insert(
+            kind: .text,
+            text: "board member",
+            hash: "ps-board"
+        ).item
+        let archiveItem = try store.insert(
+            kind: .text,
+            text: "archive notes",
+            hash: "ps-archive"
+        ).item
+
+        appState.createPinboard(name: "Remote", colorHex: "#FF9F0A")
+        await waitUntil { appState.pinboards.contains { $0.name == "Remote" } }
+        let board = try XCTUnwrap(appState.pinboards.first { $0.name == "Remote" })
+        appState.addToPinboard(try XCTUnwrap(try store.item(id: boardItem.id!)), pinboard: board)
+        await waitUntil {
+            appState.items.first { $0.id == boardItem.id }?.pinboardId == board.id
+        }
+
+        appState.searchText = "pinboard:Remote"
+        await waitUntil { appState.items.map(\.id) == [boardItem.id] }
+        XCTAssertEqual(appState.items.map(\.id), [boardItem.id])
+
+        // No board named "archive": the word becomes free text instead of
+        // hiding every row.
+        appState.searchText = "pinboard:archive"
+        await waitUntil { appState.items.map(\.id) == [archiveItem.id] }
+        XCTAssertEqual(appState.items.map(\.id), [archiveItem.id])
     }
 }
