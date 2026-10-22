@@ -9,6 +9,7 @@ struct ItemCard: View {
     @ObservedObject var appIcons: AppIconProvider
     @ObservedObject var clipImages: ClipImageStore
     @ObservedObject var codeHighlight: CodeHighlightStore
+    let dragTemp: DragTempStore
     let linkPreviews: LinkPreviewStore
     let fetchLinkPreviews: Bool
     let isPaused: Bool
@@ -17,6 +18,7 @@ struct ItemCard: View {
     let onSelect: () -> Void
     let onJumpToHistory: () -> Void
     let onPaste: () -> Void
+    let onPasteAsFile: () -> Void
     let onCopy: () -> Void
     let onPlainPaste: () -> Void
     let onShorten: () -> Void
@@ -94,6 +96,9 @@ struct ItemCard: View {
             )
         )
         .overlay(cardBorder)
+        .modifier(ImageDragModifier(isEnabled: canPasteAsFile) {
+            dragTemp.itemProvider(for: item)
+        })
         .contextMenu { contextMenu }
         .help(item.displayText)
         .onAppear {
@@ -109,6 +114,12 @@ struct ItemCard: View {
     /// render as color cards.
     private var displayKind: ClipboardItemKind {
         item.displayKind
+    }
+
+    /// Drag-out and Paste as File only apply to owned image payloads. Copied
+    /// image *files* keep `dataPath` nil and are not ours to move around.
+    private var canPasteAsFile: Bool {
+        displayKind == .image && item.previewImagePath != nil
     }
 
     private var cardBackground: some View {
@@ -289,6 +300,9 @@ struct ItemCard: View {
         Divider()
         Button("Paste") { onPaste() }
         Button("Paste as Plain Text") { onPlainPaste() }
+        if canPasteAsFile {
+            Button("Paste as File") { onPasteAsFile() }
+        }
         Button("Copy") { onCopy() }
         if displayKind == .image {
             Button("Extract Text") { onExtractText() }
@@ -346,6 +360,23 @@ struct ItemCard: View {
         }
         Button("Rename…") { onRename() }
         Button("Delete", role: .destructive) { onDelete() }
+    }
+}
+
+/// Applies drag-out only for owned image payloads. NSItemProvider is used
+/// rather than `.draggable`/`Transferable` so one drag can advertise a file
+/// URL and image data at the same time for different drop targets.
+private struct ImageDragModifier: ViewModifier {
+    let isEnabled: Bool
+    let makeProvider: () -> NSItemProvider?
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if isEnabled {
+            content.onDrag { makeProvider() ?? NSItemProvider() }
+        } else {
+            content
+        }
     }
 }
 

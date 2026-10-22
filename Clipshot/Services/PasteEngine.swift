@@ -80,6 +80,36 @@ final class PasteEngine {
         return .pasted
     }
 
+    /// Writes the item's real image file to the pasteboard as
+    /// `public.file-url`, so Finder and upload fields receive a file rather
+    /// than PNG data. No copy is made: the item's stored path is a known path,
+    /// so retention keeps it alive.
+    @discardableResult
+    func pasteAsFile(_ item: ClipboardItem) async -> PasteOutcome {
+        guard item.kind == .image, let path = item.previewImagePath else {
+            return .failed("This item has no file to paste.")
+        }
+        let url = URL(fileURLWithPath: path)
+        guard FileManager.default.fileExists(atPath: path) else {
+            return .failed("The image file is no longer available.")
+        }
+
+        let snapshot = PasteboardSnapshot(pasteboard)
+        guard writeFileURL(url) else {
+            return .failed("Could not copy the file.")
+        }
+        noteOwnWrite()
+
+        guard accessibilityTrusted() else {
+            return .copiedToClipboard
+        }
+
+        let expectedChangeCount = pasteboard.changeCount
+        simulateCommandV()
+        restore(snapshot, after: 0.3, expectedChangeCount: expectedChangeCount)
+        return .pasted
+    }
+
     func copyToClipboard(_ item: ClipboardItem, textOverride: String? = nil) async {
         let payloadData = textOverride == nil ? await loadPayloadData(for: item) : nil
         _ = write(item, plainText: false, textOverride: textOverride, payloadData: payloadData)
@@ -161,10 +191,15 @@ final class PasteEngine {
         case .file:
             guard let text = item.text,
                   let url = URL(string: text) else { return false }
-            pasteboard.writeObjects([url as NSURL])
+            return writeFileURL(url)
         }
 
         return true
+    }
+
+    private func writeFileURL(_ url: URL) -> Bool {
+        pasteboard.clearContents()
+        return pasteboard.writeObjects([url as NSURL])
     }
 
     private func simulateCommandV() {
