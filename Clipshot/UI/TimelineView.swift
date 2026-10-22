@@ -221,22 +221,18 @@ struct TimelineView: View {
             HStack(spacing: 6) {
                 chip("All", selected: isAllSelected) {
                     appState.filterPinnedOnly = false
-                    appState.filterPinboardID = nil
+                    appState.clearPinboardFilter()
                     appState.filterKind = nil
                     appState.filterBundleId = nil
                 }
                 chip("Pinned", selected: appState.filterPinnedOnly) {
                     appState.filterPinnedOnly.toggle()
-                    appState.filterPinboardID = nil
+                    appState.clearPinboardFilter()
                 }
                 ForEach(appState.pinboards) { pinboard in
                     Button {
-                        if appState.filterPinboardID == pinboard.id {
-                            appState.filterPinboardID = nil
-                        } else {
-                            appState.filterPinboardID = pinboard.id
-                            appState.filterPinnedOnly = false
-                        }
+                        guard let id = pinboard.id else { return }
+                        appState.togglePinboardFilter(id)
                     } label: {
                         HStack(spacing: 5) {
                             Circle()
@@ -250,7 +246,7 @@ struct TimelineView: View {
                         .padding(.vertical, 4)
                         .background(
                             Capsule().fill(
-                                appState.filterPinboardID == pinboard.id
+                                pinboard.id.map(appState.filterPinboardIDs.contains) == true
                                     ? Color.accentColor.opacity(0.16)
                                     : Color.primary.opacity(0.06)
                             )
@@ -304,7 +300,7 @@ struct TimelineView: View {
         appState.filterKind == nil
             && appState.filterBundleId == nil
             && !appState.filterPinnedOnly
-            && appState.filterPinboardID == nil
+            && appState.filterPinboardIDs.isEmpty
     }
 
     private func chip(_ title: String, selected: Bool, action: @escaping () -> Void) -> some View {
