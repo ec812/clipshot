@@ -421,6 +421,57 @@ struct IntegrationsSettingsView: View {
                 }
             }
 
+            Section("Local MCP") {
+                Toggle("Enable local MCP server", isOn: Binding(
+                    get: { settings.mcpEnabled },
+                    set: { appState.setMCPEnabled($0) }
+                ))
+
+                if settings.mcpEnabled {
+                    if let url = settings.mcpURL {
+                        LabeledContent("URL") {
+                            HStack(spacing: 8) {
+                                Text(url)
+                                    .font(.system(size: 11, design: .monospaced))
+                                    .textSelection(.enabled)
+                                Button("Copy") { appState.copyToClipboard(url) }
+                                    .buttonStyle(.link)
+                                    .font(.caption)
+                            }
+                        }
+                    }
+
+                    LabeledContent("Token") {
+                        HStack(spacing: 8) {
+                            Text(settings.mcpToken)
+                                .font(.system(size: 11, design: .monospaced))
+                                .textSelection(.enabled)
+                            Button("Copy") { appState.copyToClipboard(settings.mcpToken) }
+                                .buttonStyle(.link)
+                                .font(.caption)
+                        }
+                    }
+
+                    if let error = appState.mcpError {
+                        Text(error)
+                            .font(.caption)
+                            .foregroundStyle(.red)
+                    } else if settings.mcpURL == nil {
+                        Text("Starting…")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Text("Clients connect over 127.0.0.1 only and must send \"Authorization: Bearer <token>\". The server can search history and read pinboards; its only writes are creating pinboards and adding items to them.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else {
+                    Text("Exposes clipboard history to local MCP clients (Claude, Hermes, Codex) over loopback HTTP with a bearer token. Off by default.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
             Section("Defaults") {
                 TextField("Default domain", text: $settings.backendDefaultDomain)
                     .textFieldStyle(.roundedBorder)

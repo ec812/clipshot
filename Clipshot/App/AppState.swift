@@ -15,6 +15,7 @@ final class AppState: ObservableObject {
     let keychain: APIKeyStoring
     let registry: ShortenerBackendRegistry
     let monitor: ClipboardMonitor
+    let mcpToolRouter: MCPToolRouter
     let hotkeyManager = HotkeyManager()
     let pasteStack = PasteStack()
     let qrWindowController = QRWindowController()
@@ -73,10 +74,12 @@ final class AppState: ObservableObject {
     @Published var pasteStackCount = 0
     @Published private(set) var isSearchFieldFocused = false
     @Published private(set) var databaseError: String?
+    @Published var mcpError: String?
 
     var isTesting: Bool
     private var startMonitoring: Bool
     private var started = false
+    private var mcpServer: MCPServer?
     private var reloadTask: Task<Void, Never>?
     private var toastTask: Task<Void, Never>?
     private var pauseTask: Task<Void, Never>?
@@ -126,6 +129,7 @@ final class AppState: ObservableObject {
         self.startMonitoring = startMonitoring
         self.isTesting = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
         self.databaseError = initialDatabaseError
+        self.mcpToolRouter = MCPToolRouter(store: resolvedStore)
 
         self.monitor = ClipboardMonitor(
             store: resolvedStore,
@@ -167,11 +171,14 @@ final class AppState: ObservableObject {
         let store = self.store
         let retentionDays = settings.retentionDays
         Task.detached(priority: .userInitiated) {
+            var migrated = false
             do {
                 try store.migrateIfNeeded()
                 _ = try? store.applyRetention(days: retentionDays)
+                migrated = true
             } catch {
                 let recovered = (try? store.recoverAfterIOError(error)) ?? false
+                migrated = recovered
                 await MainActor.run {
                     if recovered {
                         self.databaseError = nil
@@ -181,6 +188,7 @@ final class AppState: ObservableObject {
                     }
                 }
             }
+            let migrationReady = migrated
             await MainActor.run {
                 self.reload()
                 if self.startMonitoring {
@@ -188,6 +196,9 @@ final class AppState: ObservableObject {
                 }
                 if !self.isTesting {
                     self.applyHotkeys()
+                }
+                if migrationReady, self.settings.mcpEnabled, !self.isTesting {
+                    self.startMCP()
                 }
                 if !self.settings.hasCompletedOnboarding, !self.isTesting {
                     self.presentOnboarding()
@@ -220,6 +231,59 @@ final class AppState: ObservableObject {
         let policy: NSApplication.ActivationPolicy = settings.showDockIcon ? .regular : .accessory
         guard NSApp.activationPolicy() != policy else { return }
         NSApp.setActivationPolicy(policy)
+    }
+
+    // MARK: - Local MCP
+
+    func setMCPEnabled(_ enabled: Bool) {
+        if enabled, settings.mcpToken.isEmpty {
+            settings.mcpToken = UUID().uuidString
+        }
+        settings.mcpEnabled = enabled
+        if enabled {
+            startMCP()
+        } else {
+            stopMCP()
+        }
+    }
+
+    func startMCP() {
+        guard mcpServer == nil, settings.mcpEnabled, !settings.mcpToken.isEmpty else { return }
+
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
+        let router = mcpToolRouter
+        let handler = MCPProtocol(
+            serverVersion: version ?? "1.0",
+            tools: router.tools,
+            toolHandler: { name, arguments in
+                router.call(name, arguments: arguments)
+            }
+        )
+        let server = MCPServer(protocolHandler: handler)
+        mcpServer = server
+        mcpError = nil
+
+        server.start(token: settings.mcpToken, preferredPort: MCPServer.defaultPort) { [weak self] result in
+            Task { @MainActor in
+                guard let self, self.mcpServer === server else { return }
+                switch result {
+                case .success(let port):
+                    self.settings.mcpURL = "http://127.0.0.1:\(port)\(MCPServer.path)"
+                    self.mcpError = nil
+                case .failure(let error):
+                    self.mcpServer = nil
+                    self.settings.mcpURL = nil
+                    self.mcpError = error.localizedDescription
+                }
+            }
+        }
+    }
+
+    func stopMCP() {
+        mcpServer?.stop()
+        mcpServer = nil
+        settings.mcpURL = nil
+        mcpError = nil
     }
 
     func presentOnboarding() {

@@ -59,6 +59,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        Self.sharedState?.stopMCP()
         Self.sharedState?.monitor.stop()
         Self.sharedState?.hotkeyManager.unregisterAll()
     }
