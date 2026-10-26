@@ -320,6 +320,13 @@ struct CodeHighlighter {
             }
             if attributeStart < index {
                 tokens.append(HighlightToken(range: attributeStart..<index, kind: .type))
+            } else if text[index] != "=" {
+                // No attribute name and not `=`: stray punctuation inside the
+                // tag (e.g. `a < b && c > d`). Skip one character so the loop
+                // always makes progress — previously this span forever at
+                // 100% CPU per offending clipboard item.
+                index = text.index(after: index)
+                continue
             }
 
             while index < end, text[index].isWhitespace {

@@ -144,4 +144,47 @@ final class CodeHighlighterTests: XCTestCase {
         XCTAssertNotNil(keywordRun)
         XCTAssertNotNil(keywordRun?.foregroundColor)
     }
+
+    // Regression: stray characters inside an HTML "tag" (anything that is
+    // not an HTML-name character, whitespace, `>`, `/` or `=`) used to make
+    // tokenizeHTMLTag's attribute loop spin forever without advancing,
+    // permanently pinning a cooperative thread at 100% CPU per offending
+    // clipboard item. Observed live: Clipshot at ~196% CPU with two items
+    // (`a < b && c > d`-style text detected as HTML) stuck in the loop.
+    // A regression here is an infinite loop, so every case is bounded by an
+    // expectation: fail on timeout instead of hanging the suite.
+    func testHTMLTagWithStrayCharactersTerminates() {
+        let samples = [
+            "a < b && c > d",
+            "<div ?x>hi</div>",
+            "<3 <3 coffee",
+            "if (a<b) { x = a<b ? 1 : 2 }",
+            "<span \u{1F600}>emoji</span>",
+        ]
+        let done = expectation(description: "tokenizes without hanging")
+        DispatchQueue.global(qos: .utility).async {
+            for sample in samples {
+                let tokens = CodeHighlighter.tokens(in: sample, language: .html)
+                for token in tokens {
+                    XCTAssertLessThanOrEqual(token.range.lowerBound, token.range.upperBound)
+                }
+            }
+            done.fulfill()
+        }
+        wait(for: [done], timeout: 5)
+    }
+
+    func testAttributedPreviewTerminatesOnStrayTagCharacters() {
+        let done = expectation(description: "preview builds")
+        DispatchQueue.global(qos: .utility).async {
+            let result = CodeHighlighter.attributedPreview(
+                "a < b && c > d",
+                language: .html,
+                colorScheme: .light
+            )
+            XCTAssertFalse(result.runs.isEmpty)
+            done.fulfill()
+        }
+        wait(for: [done], timeout: 5)
+    }
 }
