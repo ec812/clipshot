@@ -32,15 +32,49 @@ final class HorizontalScrollWheelTests: XCTestCase {
         XCTAssertEqual(HorizontalScrollWheel.horizontalDelta(for: scrollEvent(deltaX: 0, deltaY: -12)), -12)
     }
 
-    func testHorizontalDominantEventIsLeftToAppKit() {
-        XCTAssertNil(HorizontalScrollWheel.horizontalDelta(for: scrollEvent(deltaX: 10, deltaY: 2)))
-        XCTAssertNil(HorizontalScrollWheel.horizontalDelta(for: scrollEvent(deltaX: 10, deltaY: 0)))
+    func testHorizontalDominantEventMapsToHorizontalDelta() {
+        XCTAssertEqual(HorizontalScrollWheel.horizontalDelta(for: scrollEvent(deltaX: 10, deltaY: 2)), 10)
+        XCTAssertEqual(HorizontalScrollWheel.horizontalDelta(for: scrollEvent(deltaX: -10, deltaY: 0)), -10)
+    }
+
+    func testEqualAxisTiePrefersHorizontal() {
+        XCTAssertEqual(HorizontalScrollWheel.horizontalDelta(for: scrollEvent(deltaX: 8, deltaY: 8)), 8)
+        XCTAssertEqual(HorizontalScrollWheel.horizontalDelta(for: scrollEvent(deltaX: -8, deltaY: 8)), -8)
+    }
+
+    func testLegacyDeltaXFallbackWhenScrollingDeltasEmpty() {
+        // CGEvent always mirrors wheel ticks into scrollingDelta*, so exercise the
+        // pure mapper with empty scrolling deltas and a legacy horizontal tick.
+        XCTAssertEqual(
+            HorizontalScrollWheel.horizontalDelta(
+                scrollingDeltaX: 0,
+                scrollingDeltaY: 0,
+                deltaX: 2,
+                deltaY: 0,
+                hasPreciseScrollingDeltas: false
+            ),
+            80
+        )
+        XCTAssertEqual(
+            HorizontalScrollWheel.horizontalDelta(
+                scrollingDeltaX: 0,
+                scrollingDeltaY: 0,
+                deltaX: -3,
+                deltaY: 1,
+                hasPreciseScrollingDeltas: true
+            ),
+            -120
+        )
     }
 
     func testLineBasedEventsUseLineHeight() {
         XCTAssertEqual(
             HorizontalScrollWheel.horizontalDelta(for: scrollEvent(deltaX: 0, deltaY: 3, precise: false)),
-            30
+            120
+        )
+        XCTAssertEqual(
+            HorizontalScrollWheel.horizontalDelta(for: scrollEvent(deltaX: 4, deltaY: 0, precise: false)),
+            160
         )
     }
 
@@ -51,6 +85,19 @@ final class HorizontalScrollWheelTests: XCTestCase {
         let event = scrollEvent(deltaX: 0, deltaY: -30)
         guard let delta = HorizontalScrollWheel.horizontalDelta(for: event) else {
             return XCTFail("Vertical event should produce a horizontal delta")
+        }
+        XCTAssertTrue(HorizontalScrollWheel.scroll(scrollView, by: delta))
+        XCTAssertEqual(scrollView.contentView.bounds.origin.x, 70)
+        XCTAssertEqual(scrollView.contentView.bounds.origin.y, 0)
+    }
+
+    func testSyntheticHorizontalEventScrollsHorizontally() {
+        let scrollView = makeScrollView()
+        scrollView.contentView.scroll(to: NSPoint(x: 100, y: 0))
+
+        let event = scrollEvent(deltaX: -30, deltaY: 0)
+        guard let delta = HorizontalScrollWheel.horizontalDelta(for: event) else {
+            return XCTFail("Horizontal event should produce a horizontal delta")
         }
         XCTAssertTrue(HorizontalScrollWheel.scroll(scrollView, by: delta))
         XCTAssertEqual(scrollView.contentView.bounds.origin.x, 70)

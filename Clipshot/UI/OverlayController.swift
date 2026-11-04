@@ -55,6 +55,10 @@ final class OverlayController: NSObject, NSWindowDelegate {
         panel.makeKey()
         isVisible = true
         installMonitors()
+        // The timeline only refreshes on filter changes while it is hidden, so
+        // items captured since the last close would not appear until the user
+        // toggled a filter. Reload on every show to surface them immediately.
+        appState.reload()
     }
 
     func hide() {
