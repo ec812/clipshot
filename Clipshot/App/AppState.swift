@@ -1286,4 +1286,3 @@ final class AppState: ObservableObject {
         }
     }
 }
-    
