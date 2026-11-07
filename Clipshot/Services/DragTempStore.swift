@@ -56,32 +56,9 @@ struct DragTempStore: Sendable {
     func itemProvider(for item: ClipboardItem) -> NSItemProvider? {
         guard let fileURL = prepareDragFile(for: item) else { return nil }
 
-        let provider = NSItemProvider()
+        let payload = ImageFileDragPayload(fileURL: fileURL, dragDirectory: directory)
+        let provider = NSItemProvider(object: payload)
         provider.suggestedName = fileURL.lastPathComponent
-
-        // File URLs are object types, not in-place file payloads. Registering
-        // `public.file-url` with `registerFileRepresentation` makes SwiftUI's
-        // `onDrag` call `loadInPlaceFileRepresentation` and force-unwrap a nil
-        // URL (EXC_BREAKPOINT in PasteboardUtility.loadFileSystemItem).
-        provider.registerObject(fileURL as NSURL, visibility: .all)
-
-        provider.registerFileRepresentation(
-            forTypeIdentifier: UTType.png.identifier,
-            fileOptions: [],
-            visibility: .all
-        ) { [directory] completion in
-            completion(fileURL, false, nil)
-            let progress = Self.cancellableDragProgress(for: fileURL, in: directory)
-            progress.completedUnitCount = 1
-            return progress
-        }
-
-        // NSImage conforms to NSItemProviderWriting, which registers the
-        // public.image family for targets that want a bitmap rather than a file.
-        if let image = NSImage(contentsOf: fileURL) {
-            provider.registerObject(image, visibility: .all)
-        }
-
         return provider
     }
 

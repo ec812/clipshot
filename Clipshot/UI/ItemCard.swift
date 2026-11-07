@@ -66,6 +66,14 @@ struct ItemCard: View {
                         maxHeight: .infinity,
                         alignment: .topLeading
                     )
+                    .overlay {
+                        ImageCardDragSource(
+                            isEnabled: canDragImageOut,
+                            dragTemp: dragTemp,
+                            item: item,
+                            previewImage: clipImages.image(forPath: item.previewImagePath)
+                        )
+                    }
             }
             .contentShape(Rectangle())
             .onTapGesture(count: 2) { onPaste() }
@@ -96,9 +104,6 @@ struct ItemCard: View {
             )
         )
         .overlay(cardBorder)
-        .modifier(ImageDragModifier(isEnabled: canDragImageOut) {
-            dragTemp.itemProvider(for: item)
-        })
         .contextMenu { contextMenu }
         .help(item.displayText)
         .onAppear {
@@ -365,23 +370,6 @@ struct ItemCard: View {
         }
         Button("Rename…") { onRename() }
         Button("Delete", role: .destructive) { onDelete() }
-    }
-}
-
-/// Applies drag-out only for owned image payloads. NSItemProvider is used
-/// rather than `.draggable`/`Transferable` so one drag can advertise a file
-/// URL and image data at the same time for different drop targets.
-private struct ImageDragModifier: ViewModifier {
-    let isEnabled: Bool
-    let makeProvider: () -> NSItemProvider?
-
-    @ViewBuilder
-    func body(content: Content) -> some View {
-        if isEnabled {
-            content.onDrag { makeProvider() ?? NSItemProvider() }
-        } else {
-            content
-        }
     }
 }
 

@@ -141,15 +141,35 @@ final class DragTempStoreTests: XCTestCase {
     func testFileURLLoadsAsObjectNotInPlaceFileRepresentation() async throws {
         let provider = try XCTUnwrap(dragTemp.itemProvider(for: imageItem))
 
-        let url = try await loadURL(from: provider)
-        XCTAssertTrue(url.isFileURL)
-        XCTAssertTrue(FileManager.default.fileExists(atPath: url.path))
-        XCTAssertTrue(url.lastPathComponent.hasPrefix("clipshot-"))
-        XCTAssertTrue(url.path.hasPrefix(dragDirectory.standardizedFileURL.path))
-
         // Regression: `registerFileRepresentation` for `public.file-url` made
         // SwiftUI force-unwrap nil here. Loading must complete without trapping.
         _ = await loadInPlaceFileURL(from: provider, type: UTType.fileURL.identifier)
+
+        let materialized = DragPasteboardProbe.snapshot(DragPasteboardProbe.materialize(provider))
+        XCTAssertTrue(
+            materialized.typeStrings.contains(UTType.fileURL.identifier),
+            "probe types: \(materialized.typeStrings)"
+        )
+        XCTAssertFalse(materialized.filenamesList.isEmpty, "expected NSFilenamesPboardType")
+        let path = try XCTUnwrap(materialized.firstFilePathFromNSURL)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: path))
+        XCTAssertTrue(path.contains("clipshot-drag-hash-"))
+    }
+
+    func testExplicitFileDragPasteboardExposesLocalPathForDropTargets() throws {
+        let copy = try XCTUnwrap(dragTemp.prepareDragFile(for: imageItem))
+        let snapshot = DragPasteboardProbe.snapshot(
+            DragPasteboardProbe.materializeExplicitFileDrag(fileURL: copy)
+        )
+
+        XCTAssertTrue(snapshot.typeStrings.contains(NSPasteboard.PasteboardType.fileURL.rawValue))
+        XCTAssertTrue(snapshot.typeStrings.contains(UTType.png.identifier))
+        XCTAssertEqual(snapshot.filenamesList, [copy.path])
+        XCTAssertEqual(
+            snapshot.firstFilePathFromNSURL.map { URL(fileURLWithPath: $0).resolvingSymlinksInPath() },
+            URL(fileURLWithPath: copy.path).resolvingSymlinksInPath()
+        )
+        XCTAssertEqual(snapshot.pngByteCount, ClipboardPayloadReaderTests.pngBytes.count)
     }
 
     func testDragCopyRemovalAndCancellationProgress() throws {
