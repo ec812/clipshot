@@ -96,7 +96,7 @@ struct ItemCard: View {
             )
         )
         .overlay(cardBorder)
-        .modifier(ImageDragModifier(isEnabled: canPasteAsFile) {
+        .modifier(ImageDragModifier(isEnabled: canDragImageOut) {
             dragTemp.itemProvider(for: item)
         })
         .contextMenu { contextMenu }
@@ -116,10 +116,15 @@ struct ItemCard: View {
         item.displayKind
     }
 
-    /// Drag-out and Paste as File only apply to owned image payloads. Copied
-    /// image *files* keep `dataPath` nil and are not ours to move around.
+    /// Paste as File only applies to owned `.image` payloads in App Support.
     private var canPasteAsFile: Bool {
         displayKind == .image && item.previewImagePath != nil
+    }
+
+    /// Drag-out works for any card that previews a local image file, including
+    /// copied image paths stored as `.file` rows.
+    private var canDragImageOut: Bool {
+        item.previewImagePath != nil
     }
 
     private var cardBackground: some View {

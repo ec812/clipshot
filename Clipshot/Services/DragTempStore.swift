@@ -24,11 +24,10 @@ struct DragTempStore: Sendable {
         try? FileManager.default.createDirectory(at: self.directory, withIntermediateDirectories: true)
     }
 
-    /// Copies the item's stored image into the drag directory. The file name is
+    /// Copies the item's preview image into the drag directory. The file name is
     /// stable and readable so drop targets show something sensible.
     func prepareDragFile(for item: ClipboardItem, now: Date = Date()) -> URL? {
-        guard item.kind == .image,
-              let sourcePath = item.previewImagePath,
+        guard let sourcePath = item.previewImagePath,
               let data = try? Data(contentsOf: URL(fileURLWithPath: sourcePath))
         else { return nil }
 
@@ -60,22 +59,21 @@ struct DragTempStore: Sendable {
         let provider = NSItemProvider()
         provider.suggestedName = fileURL.lastPathComponent
 
-        provider.registerFileRepresentation(
-            forTypeIdentifier: UTType.fileURL.identifier,
-            fileOptions: [],
-            visibility: .all
-        ) { completion in
-            completion(fileURL, false, nil)
-            return nil
-        }
+        // File URLs are object types, not in-place file payloads. Registering
+        // `public.file-url` with `registerFileRepresentation` makes SwiftUI's
+        // `onDrag` call `loadInPlaceFileRepresentation` and force-unwrap a nil
+        // URL (EXC_BREAKPOINT in PasteboardUtility.loadFileSystemItem).
+        provider.registerObject(fileURL as NSURL, visibility: .all)
 
         provider.registerFileRepresentation(
             forTypeIdentifier: UTType.png.identifier,
             fileOptions: [],
             visibility: .all
-        ) { completion in
+        ) { [directory] completion in
             completion(fileURL, false, nil)
-            return nil
+            let progress = Self.cancellableDragProgress(for: fileURL, in: directory)
+            progress.completedUnitCount = 1
+            return progress
         }
 
         // NSImage conforms to NSItemProviderWriting, which registers the
@@ -85,6 +83,23 @@ struct DragTempStore: Sendable {
         }
 
         return provider
+    }
+
+    /// Returned from file-representation load handlers so cancelled drags can
+    /// drop their temp copy without waiting for the age-based sweep.
+    static func cancellableDragProgress(for url: URL, in directory: URL) -> Progress {
+        let progress = Progress(totalUnitCount: 1)
+        progress.cancellationHandler = {
+            removeDragCopy(at: url, in: directory)
+        }
+        return progress
+    }
+
+    static func removeDragCopy(at url: URL, in directory: URL) {
+        let dragRoot = directory.resolvingSymlinksInPath().path
+        let filePath = url.resolvingSymlinksInPath().path
+        guard filePath.hasPrefix(dragRoot + "/") else { return }
+        try? FileManager.default.removeItem(at: url)
     }
 
     /// Deletes drag copies older than `maxAge`. Runs at app start so files left

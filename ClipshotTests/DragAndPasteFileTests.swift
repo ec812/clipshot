@@ -127,6 +127,76 @@ final class DragTempStoreTests: XCTestCase {
         XCTAssertNil(dragTemp.itemProvider(for: file))
         XCTAssertNil(dragTemp.prepareDragFile(for: file))
     }
+
+    func testFileKindImagePathsProduceDragProvider() throws {
+        let fileItem = ClipboardItem(
+            kind: .file,
+            text: imageURL.absoluteString,
+            hash: "file-image-hash"
+        )
+        XCTAssertNotNil(dragTemp.itemProvider(for: fileItem))
+        XCTAssertNotNil(dragTemp.prepareDragFile(for: fileItem))
+    }
+
+    func testFileURLLoadsAsObjectNotInPlaceFileRepresentation() async throws {
+        let provider = try XCTUnwrap(dragTemp.itemProvider(for: imageItem))
+
+        let url = try await loadURL(from: provider)
+        XCTAssertTrue(url.isFileURL)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: url.path))
+        XCTAssertTrue(url.lastPathComponent.hasPrefix("clipshot-"))
+        XCTAssertTrue(url.path.hasPrefix(dragDirectory.standardizedFileURL.path))
+
+        // Regression: `registerFileRepresentation` for `public.file-url` made
+        // SwiftUI force-unwrap nil here. Loading must complete without trapping.
+        _ = await loadInPlaceFileURL(from: provider, type: UTType.fileURL.identifier)
+    }
+
+    func testDragCopyRemovalAndCancellationProgress() throws {
+        let copy = try XCTUnwrap(dragTemp.prepareDragFile(for: imageItem))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: copy.path))
+
+        DragTempStore.removeDragCopy(at: copy, in: dragDirectory)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: copy.path))
+
+        let stale = try XCTUnwrap(dragTemp.prepareDragFile(for: imageItem))
+        _ = DragTempStore.cancellableDragProgress(for: stale, in: dragDirectory)
+        DragTempStore.removeDragCopy(at: stale, in: dragDirectory)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: stale.path))
+    }
+
+    func testDragCopyRemovalIgnoresPathsOutsideDragDirectory() throws {
+        let outside = dataDirectory.appendingPathComponent("outside.png")
+        try ClipboardPayloadReaderTests.pngBytes.write(to: outside)
+
+        DragTempStore.removeDragCopy(at: outside, in: dragDirectory)
+
+        XCTAssertTrue(FileManager.default.fileExists(atPath: outside.path))
+    }
+
+    private func loadURL(from provider: NSItemProvider) async throws -> URL {
+        try await withCheckedThrowingContinuation { continuation in
+            provider.loadObject(ofClass: NSURL.self) { object, error in
+                if let error {
+                    continuation.resume(throwing: error)
+                    return
+                }
+                guard let url = object as? URL else {
+                    continuation.resume(throwing: NSError(domain: "ClipshotTests", code: 1))
+                    return
+                }
+                continuation.resume(returning: url)
+            }
+        }
+    }
+
+    private func loadInPlaceFileURL(from provider: NSItemProvider, type: String) async -> URL? {
+        await withCheckedContinuation { continuation in
+            provider.loadInPlaceFileRepresentation(forTypeIdentifier: type) { url, _, _ in
+                continuation.resume(returning: url)
+            }
+        }
+    }
 }
 
 @MainActor
