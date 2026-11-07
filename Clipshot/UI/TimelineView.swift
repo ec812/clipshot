@@ -19,6 +19,9 @@ struct TimelineView: View {
             }
             Divider().opacity(0.25)
             filterBar
+            if appState.hasMultiSelection {
+                bulkSelectionBar
+            }
             Divider().opacity(0.15)
 
             content
@@ -316,6 +319,52 @@ struct TimelineView: View {
         .buttonStyle(.plain)
     }
 
+    private var bulkSelectionBar: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 6) {
+                Text("\(appState.selectedItemIDs.count) selected")
+                    .font(.system(size: 11, weight: .semibold))
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 4)
+                    .background(Capsule().fill(Color.accentColor.opacity(0.16)))
+
+                chip("Delete", selected: false) {
+                    appState.deleteSelectedItems()
+                }
+                chip("Pin", selected: false) {
+                    appState.pinSelectedItems()
+                }
+
+                Menu {
+                    ForEach(appState.pinboards) { pinboard in
+                        Button(pinboard.name) {
+                            appState.addSelectedItems(to: pinboard)
+                        }
+                    }
+                } label: {
+                    HStack(spacing: 4) {
+                        Text("To pinboard")
+                            .font(.system(size: 11))
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 8, weight: .bold))
+                    }
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 4)
+                    .background(Capsule().fill(Color.primary.opacity(0.06)))
+                }
+                .menuStyle(.borderlessButton)
+
+                chip("Clear", selected: false) {
+                    appState.clearItemSelection()
+                }
+
+                Spacer(minLength: 8)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 5)
+        }
+    }
+
     @ViewBuilder
     private var content: some View {
         if appState.items.isEmpty {
@@ -332,7 +381,7 @@ struct TimelineView: View {
                     ForEach(appState.items) { item in
                         ItemCard(
                             item: item,
-                            isSelected: item.id == appState.selectedItemID,
+                            isSelected: item.id.map(appState.isItemSelected) ?? false,
                             compact: isCompact,
                             appIcons: appState.appIcons,
                             clipImages: appState.clipImages,
@@ -342,7 +391,7 @@ struct TimelineView: View {
                             fetchLinkPreviews: appState.settings.fetchLinkPreviews,
                             isPaused: appState.isPaused,
                             isFiltered: appState.hasActiveFilter,
-                            onSelect: { appState.select(item) },
+                            onSelect: { appState.select(item, modifiers: NSEvent.modifierFlags) },
                             onJumpToHistory: { appState.reveal(item) },
                             onPaste: { appState.paste(item) },
                             onPasteAsFile: { appState.pasteAsFile(item) },
