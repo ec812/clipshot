@@ -744,13 +744,53 @@ final class AppState: ObservableObject {
 
     func delete(_ item: ClipboardItem) {
         guard let id = item.id else { return }
+        deleteItems(withIDs: [id])
+    }
+
+    /// Deletes the current timeline selection. With 2+ cards selected, removes
+    /// every selected row in one store write; with a single selection, matches
+    /// `delete(_:)` (no confirmation dialog — same as today).
+    func deleteKeyboardSelection() {
+        if selectedItemIDs.count > 1 {
+            deleteItems(withIDs: selectedItemIDs)
+        } else if let item = selectedItem {
+            delete(item)
+        }
+    }
+
+    private func deleteItems(withIDs ids: Set<Int64>) {
+        guard !ids.isEmpty else { return }
+        let targets = items.filter { item in
+            guard let id = item.id else { return false }
+            return ids.contains(id)
+        }
+        guard !targets.isEmpty else { return }
         let dataStore = self.dataStore
-        let path = item.dataPath
+        let deletedIDs = Set(targets.compactMap(\.id))
         performStoreWrite({ store in
-            if let path {
-                dataStore.delete(atPath: path)
+            for item in targets {
+                if let path = item.dataPath {
+                    dataStore.delete(atPath: path)
+                }
+                if let id = item.id {
+                    try store.deleteItem(id: id)
+                }
             }
-            try store.deleteItem(id: id)
+        }, completion: { [weak self] in
+            guard let self else { return }
+            if deletedIDs.count > 1 {
+                self.selectedItemIDs = []
+                self.selectionAnchorID = nil
+                self.selectedItemID = nil
+            } else if let selectedItemID, deletedIDs.contains(selectedItemID) {
+                self.selectedItemIDs = []
+                self.selectionAnchorID = nil
+                self.selectedItemID = nil
+            }
+            let count = deletedIDs.count
+            if count > 1 {
+                self.showToast("Deleted \(count) items")
+            }
         })
     }
 
@@ -1308,9 +1348,8 @@ final class AppState: ObservableObject {
                 if let item = selectedItem { quickLook.preview(item, dataStore: dataStore) }
                 return true
             case kVK_Delete:
-                // Command-Backspace always deletes the selected item, even while
-                // the search field has focus.
-                if let item = selectedItem { delete(item) }
+                // Command-Backspace deletes the selection (all selected when 2+).
+                deleteKeyboardSelection()
                 return true
             default:
                 return false
@@ -1349,7 +1388,7 @@ final class AppState: ObservableObject {
             // While editing the search field, Backspace must edit the query.
             // Use ⌘⌫ to delete a history item.
             if editingSearch { return false }
-            if let item = selectedItem { delete(item) }
+            deleteKeyboardSelection()
             return true
         default:
             return false

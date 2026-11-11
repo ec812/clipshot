@@ -138,6 +138,44 @@ final class AppStateMultiSelectTests: XCTestCase {
         XCTAssertNil(appState.selectedItemID)
     }
 
+    func testBulkDeleteRemovesAllSelectedRowsAndClearsSelection() async throws {
+        let store = try HistoryStore.inMemory()
+        let appState = makeAppState(store: store)
+
+        let keep = try insertText(store, "keep", hash: "keep")
+        let dropA = try insertText(store, "drop-a", hash: "drop-a")
+        let dropB = try insertText(store, "drop-b", hash: "drop-b")
+        appState.reload()
+        await waitUntil { appState.items.count == 3 }
+
+        appState.selectedItemIDs = [dropA, dropB]
+        appState.selectedItemID = dropA
+        appState.deleteKeyboardSelection()
+
+        await waitUntil { appState.items.count == 1 }
+        XCTAssertEqual(appState.items.map(\.id), [keep])
+        XCTAssertFalse(appState.hasMultiSelection)
+        XCTAssertEqual(appState.selectedItemIDs, [keep])
+        XCTAssertEqual(appState.selectedItemID, keep)
+    }
+
+    func testSingleDeletePathUnchanged() async throws {
+        let store = try HistoryStore.inMemory()
+        let appState = makeAppState(store: store)
+
+        let only = try insertText(store, "only", hash: "only")
+        let gone = try insertText(store, "gone", hash: "gone")
+        appState.reload()
+        await waitUntil { appState.items.count == 2 }
+
+        let item = try XCTUnwrap(appState.items.first { $0.id == gone })
+        appState.select(item)
+        appState.deleteKeyboardSelection()
+
+        await waitUntil { appState.items.count == 1 }
+        XCTAssertEqual(appState.items.map(\.id), [only])
+    }
+
     func testFilterReloadPrunesInvisibleSelection() async throws {
         let store = try HistoryStore.inMemory()
         let appState = makeAppState(store: store)
