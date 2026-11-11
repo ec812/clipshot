@@ -491,7 +491,7 @@ final class AppState: ObservableObject {
         guard let id = item.id else { return }
         if modifiers.contains(.shift) {
             extendSelection(to: id)
-        } else if modifiers.contains(.command) {
+        } else if modifiers.contains(.command) || modifiers.contains(.option) {
             toggleItemSelection(id)
         } else {
             setSingleSelection(id)
@@ -499,14 +499,12 @@ final class AppState: ObservableObject {
         selectedItemID = id
     }
 
-    func clearItemSelection() {
-        if let selectedItemID {
-            selectedItemIDs = [selectedItemID]
-            selectionAnchorID = selectedItemID
-        } else {
-            selectedItemIDs = []
-            selectionAnchorID = nil
-        }
+    /// Drops every selected card. Filter reloads may shrink `selectedItemIDs`
+    /// to the items still visible (`pruneSelection`); that is intentional.
+    func clearSelection() {
+        selectedItemIDs = []
+        selectedItemID = nil
+        selectionAnchorID = nil
     }
 
     private func setSingleSelection(_ id: Int64) {
@@ -746,77 +744,13 @@ final class AppState: ObservableObject {
 
     func delete(_ item: ClipboardItem) {
         guard let id = item.id else { return }
-        deleteItems(ids: [id])
-    }
-
-    func deleteSelectedItems() {
-        let ids = selectedItemIDs
-        guard !ids.isEmpty else { return }
-        deleteItems(ids: ids)
-    }
-
-    private func deleteItems(ids: Set<Int64>) {
-        let targets = items.filter { item in
-            guard let id = item.id else { return false }
-            return ids.contains(id)
-        }
-        guard !targets.isEmpty else { return }
         let dataStore = self.dataStore
+        let path = item.dataPath
         performStoreWrite({ store in
-            for item in targets {
-                if let path = item.dataPath {
-                    dataStore.delete(atPath: path)
-                }
-                if let id = item.id {
-                    try store.deleteItem(id: id)
-                }
+            if let path {
+                dataStore.delete(atPath: path)
             }
-        }, completion: { [weak self] in
-            guard let self else { return }
-            let count = targets.count
-            self.selectedItemIDs.subtract(ids)
-            if self.selectedItemIDs.isEmpty {
-                self.selectionAnchorID = nil
-            }
-            self.showToast(count == 1 ? "Deleted" : "Deleted \(count) items")
-        })
-    }
-
-    func pinSelectedItems() {
-        let ids = selectedItemIDs
-        guard !ids.isEmpty else { return }
-        setPinned(true, for: ids)
-    }
-
-    func addSelectedItems(to pinboard: Pinboard) {
-        guard let pinboardID = pinboard.id else { return }
-        let ids = selectedItemIDs
-        guard !ids.isEmpty else { return }
-        let name = pinboard.name
-        performStoreWrite({ store in
-            for id in ids {
-                try store.addItem(id, toPinboard: pinboardID)
-            }
-        }, completion: { [weak self] in
-            self?.showToast(
-                ids.count == 1 ? "Added to \(name)" : "Added \(ids.count) items to \(name)"
-            )
-        })
-    }
-
-    private func setPinned(_ pinned: Bool, for ids: Set<Int64>) {
-        performStoreWrite({ store in
-            for id in ids {
-                try store.setPinned(pinned, for: id)
-            }
-        }, completion: { [weak self] in
-            guard let self else { return }
-            let count = ids.count
-            self.showToast(
-                pinned
-                    ? (count == 1 ? "Pinned" : "Pinned \(count) items")
-                    : (count == 1 ? "Unpinned" : "Unpinned \(count) items")
-            )
+            try store.deleteItem(id: id)
         })
     }
 
@@ -1326,6 +1260,10 @@ final class AppState: ObservableObject {
         let editingSearch = isSearchFieldFocused || isTextInputFocused(event)
 
         if keyCode == kVK_Escape {
+            if selectedItemIDs.count > 1 {
+                clearSelection()
+                return true
+            }
             overlayController.hide()
             return true
         }
@@ -1370,13 +1308,9 @@ final class AppState: ObservableObject {
                 if let item = selectedItem { quickLook.preview(item, dataStore: dataStore) }
                 return true
             case kVK_Delete:
-                // Command-Backspace always deletes the selection, even while the
-                // search field has focus.
-                if !selectedItemIDs.isEmpty {
-                    deleteSelectedItems()
-                } else if let item = selectedItem {
-                    delete(item)
-                }
+                // Command-Backspace always deletes the selected item, even while
+                // the search field has focus.
+                if let item = selectedItem { delete(item) }
                 return true
             default:
                 return false
@@ -1415,11 +1349,7 @@ final class AppState: ObservableObject {
             // While editing the search field, Backspace must edit the query.
             // Use ⌘⌫ to delete a history item.
             if editingSearch { return false }
-            if hasMultiSelection {
-                deleteSelectedItems()
-            } else if let item = selectedItem {
-                delete(item)
-            }
+            if let item = selectedItem { delete(item) }
             return true
         default:
             return false

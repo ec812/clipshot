@@ -4,6 +4,8 @@ import SwiftUI
 struct ItemCard: View {
     let item: ClipboardItem
     let isSelected: Bool
+  /// True when more than one card is selected (stronger selection ring).
+    let isMultiSelectActive: Bool
     let compact: Bool
     @Environment(\.colorScheme) private var colorScheme
     @ObservedObject var appIcons: AppIconProvider
@@ -148,8 +150,16 @@ struct ItemCard: View {
         )
         .stroke(
             borderColor,
-            lineWidth: CardAccentStyle.borderWidth(isSelected: isSelected)
+            lineWidth: selectionBorderWidth
         )
+    }
+
+    private var selectionBorderWidth: CGFloat {
+        guard isSelected else {
+            return CardAccentStyle.borderWidth(isSelected: false)
+        }
+        if isMultiSelectActive { return 2.5 }
+        return CardAccentStyle.borderWidth(isSelected: true)
     }
 
     private var borderColor: Color {
@@ -159,7 +169,11 @@ struct ItemCard: View {
         ) {
             return tint.color
         }
-        if isSelected { return Color.accentColor.opacity(0.9) }
+        if isSelected {
+            return isMultiSelectActive
+                ? Color.accentColor
+                : Color.accentColor.opacity(0.9)
+        }
         return Color.primary.opacity(0.12)
     }
 

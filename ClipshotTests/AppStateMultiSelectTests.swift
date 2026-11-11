@@ -46,6 +46,22 @@ final class AppStateMultiSelectTests: XCTestCase {
         return try XCTUnwrap(inserted.id)
     }
 
+    func testPlainClickReplacesSelectionWithOneItem() async throws {
+        let store = try HistoryStore.inMemory()
+        let appState = makeAppState(store: store)
+
+        let first = try insertText(store, "one", hash: "one")
+        let second = try insertText(store, "two", hash: "two")
+        appState.reload()
+        await waitUntil { appState.items.count == 2 }
+
+        let itemOne = try XCTUnwrap(appState.items.first { $0.id == first })
+        let itemTwo = try XCTUnwrap(appState.items.first { $0.id == second })
+        appState.select(itemOne)
+        appState.select(itemTwo)
+        XCTAssertEqual(appState.selectedItemIDs, [second])
+    }
+
     func testCommandClickTogglesSelectionSet() async throws {
         let store = try HistoryStore.inMemory()
         let appState = makeAppState(store: store)
@@ -57,7 +73,6 @@ final class AppStateMultiSelectTests: XCTestCase {
 
         let itemOne = try XCTUnwrap(appState.items.first { $0.id == first })
         appState.select(itemOne)
-        XCTAssertEqual(appState.selectedItemIDs, [first])
 
         let itemTwo = try XCTUnwrap(appState.items.first { $0.id == second })
         appState.select(itemTwo, modifiers: [.command])
@@ -65,6 +80,22 @@ final class AppStateMultiSelectTests: XCTestCase {
 
         appState.select(itemTwo, modifiers: [.command])
         XCTAssertEqual(appState.selectedItemIDs, [first])
+    }
+
+    func testOptionClickTogglesLikeCommand() async throws {
+        let store = try HistoryStore.inMemory()
+        let appState = makeAppState(store: store)
+
+        let first = try insertText(store, "one", hash: "one")
+        let second = try insertText(store, "two", hash: "two")
+        appState.reload()
+        await waitUntil { appState.items.count == 2 }
+
+        let itemOne = try XCTUnwrap(appState.items.first { $0.id == first })
+        appState.select(itemOne)
+        let itemTwo = try XCTUnwrap(appState.items.first { $0.id == second })
+        appState.select(itemTwo, modifiers: [.option])
+        XCTAssertEqual(appState.selectedItemIDs, Set([first, second]))
     }
 
     func testShiftClickSelectsInclusiveRangeInTimelineOrder() async throws {
@@ -90,47 +121,43 @@ final class AppStateMultiSelectTests: XCTestCase {
         )
     }
 
-    func testBulkDeleteRemovesAllSelectedItems() async throws {
+    func testClearSelectionEmptiesSelectedIDs() async throws {
         let store = try HistoryStore.inMemory()
         let appState = makeAppState(store: store)
 
-        let keep = try insertText(store, "keep", hash: "keep")
-        let dropA = try insertText(store, "drop-a", hash: "drop-a")
-        let dropB = try insertText(store, "drop-b", hash: "drop-b")
-        appState.reload()
-        await waitUntil { appState.items.count == 3 }
-
-        appState.selectedItemIDs = [dropA, dropB]
-        appState.selectedItemID = dropA
-        appState.deleteSelectedItems()
-
-        await waitUntil { appState.items.count == 1 }
-        XCTAssertEqual(appState.items.map(\.id), [keep])
-        XCTAssertTrue(appState.selectedItemIDs.isEmpty || appState.selectedItemIDs == [keep])
-    }
-
-    func testBulkPinAndAddToPinboard() async throws {
-        let store = try HistoryStore.inMemory()
-        let appState = makeAppState(store: store)
-
-        let one = try insertText(store, "one", hash: "pin-one")
-        let two = try insertText(store, "two", hash: "pin-two")
-        let pinboard = try store.createPinboard(name: "Bulk", colorHex: "#ff8800")
-        let boardID = try XCTUnwrap(pinboard.id)
+        let first = try insertText(store, "one", hash: "one")
+        let second = try insertText(store, "two", hash: "two")
         appState.reload()
         await waitUntil { appState.items.count == 2 }
 
-        appState.selectedItemIDs = [one, two]
-        appState.pinSelectedItems()
-        await waitUntil {
-            (try? store.item(id: one))?.isPinned == true
-                && (try? store.item(id: two))?.isPinned == true
-        }
+        appState.selectedItemIDs = [first, second]
+        appState.selectedItemID = first
+        appState.clearSelection()
 
-        appState.addSelectedItems(to: pinboard)
-        await waitUntil {
-            (try? store.item(id: one))?.pinboardId == boardID
-                && (try? store.item(id: two))?.pinboardId == boardID
-        }
+        XCTAssertTrue(appState.selectedItemIDs.isEmpty)
+        XCTAssertNil(appState.selectedItemID)
+    }
+
+    func testFilterReloadPrunesInvisibleSelection() async throws {
+        let store = try HistoryStore.inMemory()
+        let appState = makeAppState(store: store)
+
+        let urlID = try XCTUnwrap(
+            try store.insert(
+                kind: .url,
+                text: "https://example.com",
+                bundleId: "com.apple.Safari",
+                hash: "url-item"
+            ).item.id
+        )
+        let text = try insertText(store, "note", hash: "note")
+        appState.reload()
+        await waitUntil { appState.items.count == 2 }
+
+        appState.selectedItemIDs = [urlID, text]
+        appState.filterKind = .text
+        await waitUntil { appState.items.count == 1 }
+
+        XCTAssertEqual(appState.selectedItemIDs, [text])
     }
 }
