@@ -16,6 +16,7 @@ final class ItemCardClickTests: XCTestCase {
         return ItemCard(
             item: item,
             isSelected: false,
+            isMultiSelectActive: false,
             compact: false,
             appIcons: AppIconProvider(),
             clipImages: ClipImageStore(),

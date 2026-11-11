@@ -332,7 +332,8 @@ struct TimelineView: View {
                     ForEach(appState.items) { item in
                         ItemCard(
                             item: item,
-                            isSelected: item.id == appState.selectedItemID,
+                            isSelected: item.id.map(appState.isItemSelected) ?? false,
+                            isMultiSelectActive: appState.hasMultiSelection,
                             compact: isCompact,
                             appIcons: appState.appIcons,
                             clipImages: appState.clipImages,
@@ -342,7 +343,7 @@ struct TimelineView: View {
                             fetchLinkPreviews: appState.settings.fetchLinkPreviews,
                             isPaused: appState.isPaused,
                             isFiltered: appState.hasActiveFilter,
-                            onSelect: { appState.select(item) },
+                            onSelect: { appState.select(item, modifiers: NSEvent.modifierFlags) },
                             onJumpToHistory: { appState.reveal(item) },
                             onPaste: { appState.paste(item) },
                             onPasteAsFile: { appState.pasteAsFile(item) },
@@ -367,6 +368,12 @@ struct TimelineView: View {
                         )
                         .id(item.id)
                     }
+
+                    Color.clear
+                        .frame(minWidth: 120)
+                        .frame(maxHeight: .infinity)
+                        .contentShape(Rectangle())
+                        .onTapGesture { appState.clearSelection() }
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)

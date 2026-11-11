@@ -35,6 +35,11 @@ final class AppState: ObservableObject {
 
     @Published var items: [ClipboardItem] = []
     @Published var selectedItemID: Int64?
+    /// Timeline multi-select (⌘/⇧ click). Follows the same set-toggle pattern
+    /// as `filterPinboardIDs` chips.
+    @Published var selectedItemIDs: Set<Int64> = []
+    /// Range anchor for ⇧-click selection in the current `items` order.
+    private var selectionAnchorID: Int64?
     /// Set by `reveal(_:)` when clearing a filter starts an asynchronous reload.
     /// The timeline re-centers this id after the reloaded items land, then
     /// acknowledges it. Without this, the selection scroll would run against
@@ -393,10 +398,7 @@ final class AppState: ObservableObject {
                 await MainActor.run { [weak self] in
                     guard let self, generation == self.reloadGeneration else { return }
                     self.items = loaded
-                    if self.selectedItemID == nil
-                        || !loaded.contains(where: { $0.id == self.selectedItemID }) {
-                        self.selectedItemID = loaded.first?.id
-                    }
+                    self.pruneSelection(to: loaded)
                     self.sourceApps = sources
                     self.pinboards = boards
                     self.rules = rules
@@ -453,6 +455,21 @@ final class AppState: ObservableObject {
         return items.first { $0.id == selectedItemID }
     }
 
+    var selectedItems: [ClipboardItem] {
+        items.filter { item in
+            guard let id = item.id else { return false }
+            return selectedItemIDs.contains(id)
+        }
+    }
+
+    var hasMultiSelection: Bool {
+        selectedItemIDs.count > 1
+    }
+
+    func isItemSelected(_ id: Int64) -> Bool {
+        selectedItemIDs.contains(id)
+    }
+
     /// True when the timeline is narrowed by a search query or any filter.
     var hasActiveFilter: Bool {
         !searchText.isEmpty
@@ -466,11 +483,79 @@ final class AppState: ObservableObject {
         guard !items.isEmpty else { return }
         let currentIndex = items.firstIndex { $0.id == selectedItemID } ?? 0
         let next = min(max(currentIndex + delta, 0), items.count - 1)
-        selectedItemID = items[next].id
+        guard let id = items[next].id else { return }
+        setSingleSelection(id)
     }
 
-    func select(_ item: ClipboardItem) {
-        selectedItemID = item.id
+    func select(_ item: ClipboardItem, modifiers: NSEvent.ModifierFlags = []) {
+        guard let id = item.id else { return }
+        if modifiers.contains(.shift) {
+            extendSelection(to: id)
+        } else if modifiers.contains(.command) || modifiers.contains(.option) {
+            toggleItemSelection(id)
+        } else {
+            setSingleSelection(id)
+        }
+        selectedItemID = id
+    }
+
+    /// Drops every selected card. Filter reloads may shrink `selectedItemIDs`
+    /// to the items still visible (`pruneSelection`); that is intentional.
+    func clearSelection() {
+        selectedItemIDs = []
+        selectedItemID = nil
+        selectionAnchorID = nil
+    }
+
+    private func setSingleSelection(_ id: Int64) {
+        selectedItemIDs = [id]
+        selectionAnchorID = id
+    }
+
+    private func toggleItemSelection(_ id: Int64) {
+        if selectedItemIDs.isEmpty, let selectedItemID {
+            selectedItemIDs = [selectedItemID]
+        }
+        if selectedItemIDs.contains(id) {
+            selectedItemIDs.remove(id)
+            if selectedItemID == id {
+                selectedItemID = selectedItemIDs.sorted().first
+            }
+        } else {
+            selectedItemIDs.insert(id)
+        }
+        selectionAnchorID = id
+        if selectedItemIDs.isEmpty {
+            selectedItemID = nil
+            selectionAnchorID = nil
+        }
+    }
+
+    private func extendSelection(to id: Int64) {
+        let anchor = selectionAnchorID ?? selectedItemID ?? id
+        guard let anchorIndex = items.firstIndex(where: { $0.id == anchor }),
+              let clickIndex = items.firstIndex(where: { $0.id == id })
+        else {
+            setSingleSelection(id)
+            return
+        }
+        let range = min(anchorIndex, clickIndex)...max(anchorIndex, clickIndex)
+        selectedItemIDs = Set(items[range].compactMap(\.id))
+        selectionAnchorID = anchor
+    }
+
+    private func pruneSelection(to loaded: [ClipboardItem]) {
+        let valid = Set(loaded.compactMap(\.id))
+        selectedItemIDs = selectedItemIDs.intersection(valid)
+        if let selectedItemID, !valid.contains(selectedItemID) {
+            self.selectedItemID = selectedItemIDs.sorted().first ?? loaded.first?.id
+        } else if selectedItemID == nil {
+            selectedItemID = loaded.first?.id
+        }
+        if selectedItemIDs.isEmpty, let selectedItemID {
+            selectedItemIDs = [selectedItemID]
+            selectionAnchorID = selectedItemID
+        }
     }
 
     /// Clears the search query and any filter that would hide `item`, then
@@ -518,7 +603,10 @@ final class AppState: ObservableObject {
         if reloadStarted, let id = item.id {
             revealTargetID = id
         }
-        selectedItemID = item.id
+        if let id = item.id {
+            selectedItemID = id
+            setSingleSelection(id)
+        }
     }
 
     /// Called by the timeline after it re-centers a reveal target.
@@ -551,7 +639,10 @@ final class AppState: ObservableObject {
             items.insert(item, at: 0)
             // Select the new item so the timeline scrolls it into view; otherwise
             // a capture can be published off-screen while an older card is selected.
-            selectedItemID = item.id
+            if let id = item.id {
+                selectedItemID = id
+                setSingleSelection(id)
+            }
         } else {
             reload()
         }
@@ -653,13 +744,53 @@ final class AppState: ObservableObject {
 
     func delete(_ item: ClipboardItem) {
         guard let id = item.id else { return }
+        deleteItems(withIDs: [id])
+    }
+
+    /// Deletes the current timeline selection. With 2+ cards selected, removes
+    /// every selected row in one store write; with a single selection, matches
+    /// `delete(_:)` (no confirmation dialog — same as today).
+    func deleteKeyboardSelection() {
+        if selectedItemIDs.count > 1 {
+            deleteItems(withIDs: selectedItemIDs)
+        } else if let item = selectedItem {
+            delete(item)
+        }
+    }
+
+    private func deleteItems(withIDs ids: Set<Int64>) {
+        guard !ids.isEmpty else { return }
+        let targets = items.filter { item in
+            guard let id = item.id else { return false }
+            return ids.contains(id)
+        }
+        guard !targets.isEmpty else { return }
         let dataStore = self.dataStore
-        let path = item.dataPath
+        let deletedIDs = Set(targets.compactMap(\.id))
         performStoreWrite({ store in
-            if let path {
-                dataStore.delete(atPath: path)
+            for item in targets {
+                if let path = item.dataPath {
+                    dataStore.delete(atPath: path)
+                }
+                if let id = item.id {
+                    try store.deleteItem(id: id)
+                }
             }
-            try store.deleteItem(id: id)
+        }, completion: { [weak self] in
+            guard let self else { return }
+            if deletedIDs.count > 1 {
+                self.selectedItemIDs = []
+                self.selectionAnchorID = nil
+                self.selectedItemID = nil
+            } else if let selectedItemID, deletedIDs.contains(selectedItemID) {
+                self.selectedItemIDs = []
+                self.selectionAnchorID = nil
+                self.selectedItemID = nil
+            }
+            let count = deletedIDs.count
+            if count > 1 {
+                self.showToast("Deleted \(count) items")
+            }
         })
     }
 
@@ -1169,6 +1300,10 @@ final class AppState: ObservableObject {
         let editingSearch = isSearchFieldFocused || isTextInputFocused(event)
 
         if keyCode == kVK_Escape {
+            if selectedItemIDs.count > 1 {
+                clearSelection()
+                return true
+            }
             overlayController.hide()
             return true
         }
@@ -1213,9 +1348,8 @@ final class AppState: ObservableObject {
                 if let item = selectedItem { quickLook.preview(item, dataStore: dataStore) }
                 return true
             case kVK_Delete:
-                // Command-Backspace always deletes the selected item, even while
-                // the search field has focus.
-                if let item = selectedItem { delete(item) }
+                // Command-Backspace deletes the selection (all selected when 2+).
+                deleteKeyboardSelection()
                 return true
             default:
                 return false
@@ -1254,7 +1388,7 @@ final class AppState: ObservableObject {
             // While editing the search field, Backspace must edit the query.
             // Use ⌘⌫ to delete a history item.
             if editingSearch { return false }
-            if let item = selectedItem { delete(item) }
+            deleteKeyboardSelection()
             return true
         default:
             return false
