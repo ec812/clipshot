@@ -139,6 +139,19 @@ final class AppIconProvider: ObservableObject {
 
     func ensureLoaded(bundleId: String?) {
         guard let bundleId, !bundleId.isEmpty else { return }
+        // The app's own icon changes with every build, but the disk cache is
+        // keyed only by bundle id. Serve Clipshot's icon from the running app
+        // so timeline cards never show a stale copy.
+        if bundleId == Bundle.main.bundleIdentifier {
+            guard icons[bundleId] == nil else { return }
+            icons[bundleId] = genericIcon
+            if let cgImage = genericIcon.cgImage(forProposedRect: nil, context: nil, hints: nil),
+               let accent = AppIconAccent.dominantAccent(from: cgImage) {
+                accents[bundleId] = accent
+            }
+            revision &+= 1
+            return
+        }
         guard icons[bundleId] == nil, !missing.contains(bundleId), !inFlight.contains(bundleId) else {
             return
         }
